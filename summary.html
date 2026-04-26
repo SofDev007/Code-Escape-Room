@@ -1,0 +1,586 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>CODE ESCAPE ROOM — MISSION SUMMARY</title>
+  <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&family=VT323&display=swap" rel="stylesheet"/>
+  <style>
+    :root {
+      --green:      #00ff41;
+      --green-dim:  #00c832;
+      --green-dark: #003d10;
+      --red:        #ff2233;
+      --amber:      #ffb700;
+      --cyan:       #00f5ff;
+      --purple:     #aa00ff;
+      --bg:         #020c02;
+      --panel-bg:   rgba(0,18,5,0.90);
+      --border:     rgba(0,255,65,0.13);
+      --font-mono:  'Share Tech Mono', monospace;
+      --font-hud:   'Orbitron', sans-serif;
+      --font-retro: 'VT323', monospace;
+    }
+    *, *::before, *::after { box-sizing:border-box; margin:0; padding:0; }
+    html, body { width:100%; background:var(--bg); color:var(--green); font-family:var(--font-mono); }
+
+    #bgCanvas  { position:fixed; top:0; left:0; width:100%; height:100%; z-index:0; opacity:0.09; }
+    .scanlines { position:fixed; inset:0; z-index:1; pointer-events:none; background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,0.06) 2px,rgba(0,0,0,0.06) 4px); }
+    .vignette  { position:fixed; inset:0; z-index:2; pointer-events:none; background:radial-gradient(ellipse at center,transparent 45%,rgba(0,0,0,0.9) 100%); }
+
+    /* ── PAGE WRAPPER ── */
+    .page { position:relative; z-index:10; max-width:1100px; margin:0 auto; padding:clamp(16px,3vw,36px) clamp(14px,3vw,32px) 60px; }
+
+    /* ── LOADING ── */
+    #loadingScreen { position:fixed; inset:0; z-index:300; background:var(--bg); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:16px; }
+    .load-title { font-family:var(--font-hud); font-size:1.1rem; letter-spacing:0.2em; color:var(--green); text-shadow:0 0 16px var(--green); }
+    .load-bar   { width:240px; height:3px; background:rgba(0,255,65,0.1); border-radius:2px; overflow:hidden; }
+    .load-fill  { height:100%; background:var(--green); animation:loadFill 2s ease forwards; }
+    @keyframes loadFill { from{width:0}to{width:100%} }
+    .load-msg   { font-size:0.7rem; color:rgba(0,255,65,0.4); letter-spacing:0.1em; }
+
+    /* ── TOP HEADER ── */
+    .top-nav {
+      display:flex; align-items:center; justify-content:space-between;
+      padding:12px 0 20px; border-bottom:1px solid var(--border);
+      margin-bottom:28px; flex-wrap:wrap; gap:12px;
+    }
+    .nav-logo { font-family:var(--font-hud); font-size:0.78rem; font-weight:900; letter-spacing:0.15em; color:var(--green); text-shadow:0 0 10px var(--green); }
+    .nav-btns  { display:flex; gap:10px; }
+    .nav-btn   { font-family:var(--font-hud); font-size:0.6rem; padding:7px 14px; border:1px solid; border-radius:2px; cursor:pointer; letter-spacing:0.1em; transition:all 0.2s; }
+    .nav-btn.green { border-color:var(--green); background:rgba(0,255,65,0.08); color:var(--green); }
+    .nav-btn.green:hover { background:rgba(0,255,65,0.16); }
+    .nav-btn.amber { border-color:var(--amber); background:rgba(255,183,0,0.08); color:var(--amber); }
+    .nav-btn.amber:hover { background:rgba(255,183,0,0.16); }
+
+    /* ── HERO SECTION ── */
+    .hero {
+      text-align:center; padding:clamp(20px,4vh,40px) 0;
+      margin-bottom:32px;
+      animation:fadeUp 0.7s ease 0.2s both;
+    }
+    .hero-status {
+      font-size:0.68rem; letter-spacing:0.25em; color:var(--green-dim);
+      margin-bottom:12px; display:flex; align-items:center; justify-content:center; gap:10px;
+    }
+    .status-line { flex:1; max-width:80px; height:1px; background:linear-gradient(90deg,transparent,var(--green-dim)); }
+    .status-line.right { background:linear-gradient(90deg,var(--green-dim),transparent); }
+
+    .hero-name {
+      font-family:var(--font-retro); font-size:clamp(3rem,7vw,5.5rem);
+      color:var(--green); text-shadow:0 0 30px rgba(0,255,65,0.5), 0 0 60px rgba(0,255,65,0.2);
+      letter-spacing:0.1em; line-height:1; margin-bottom:8px;
+      animation:glitch 6s infinite;
+    }
+    @keyframes glitch {
+      0%,93%,100%{ text-shadow:0 0 30px rgba(0,255,65,0.5); }
+      94%{ transform:translate(-2px,0); text-shadow:-2px 0 var(--red),2px 0 var(--cyan); }
+      95%{ transform:translate(2px,0); text-shadow:2px 0 var(--red),-2px 0 var(--cyan); }
+      96%{ transform:none; }
+    }
+
+    .hero-batch { font-size:0.72rem; color:rgba(0,255,65,0.45); letter-spacing:0.15em; margin-bottom:20px; }
+
+    /* Status badge */
+    .status-badge {
+      display:inline-block; padding:6px 20px;
+      font-family:var(--font-hud); font-size:0.72rem; font-weight:700;
+      letter-spacing:0.15em; border-radius:3px; border:1px solid;
+    }
+    .status-badge.escaped  { border-color:var(--amber); background:rgba(255,183,0,0.1); color:var(--amber); text-shadow:0 0 10px var(--amber); }
+    .status-badge.failed   { border-color:var(--red);   background:rgba(255,34,51,0.1); color:var(--red);   text-shadow:0 0 10px var(--red); }
+    .status-badge.timeout  { border-color:var(--amber); background:rgba(255,183,0,0.1); color:var(--amber); }
+
+    /* ── SCORE CARDS ── */
+    .score-cards { display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:14px; margin-bottom:32px; animation:fadeUp 0.7s ease 0.4s both; }
+    .score-card  {
+      background:var(--panel-bg); border:1px solid var(--border); border-radius:4px;
+      padding:18px 14px; text-align:center; position:relative; overflow:hidden;
+      transition:all 0.2s;
+    }
+    .score-card::before { content:''; position:absolute; top:0;left:0;right:0; height:2px; background:linear-gradient(90deg,transparent,var(--accent,var(--green)),transparent); }
+    .score-card:hover { border-color:rgba(0,255,65,0.25); box-shadow:0 0 18px rgba(0,255,65,0.07); }
+    .sc-icon  { font-size:1.5rem; margin-bottom:8px; display:block; }
+    .sc-val   { font-family:var(--font-retro); font-size:2.4rem; line-height:1; display:block; color:var(--accent,var(--green)); text-shadow:0 0 12px var(--accent,var(--green)); }
+    .sc-label { font-size:0.58rem; color:rgba(0,255,65,0.4); letter-spacing:0.12em; margin-top:5px; }
+
+    /* ── MAIN GRID ── */
+    .main-grid { display:grid; grid-template-columns:1fr 1fr; gap:20px; margin-bottom:24px; }
+    @media(max-width:760px){ .main-grid{grid-template-columns:1fr;} }
+
+    /* ── PANEL ── */
+    .panel { background:var(--panel-bg); border:1px solid var(--border); border-radius:4px; overflow:hidden; position:relative; animation:fadeUp 0.7s ease 0.5s both; }
+    .panel.full { grid-column:1/-1; }
+    .panel::before { content:''; position:absolute; top:0;left:0;right:0; height:1px; background:linear-gradient(90deg,transparent,var(--green),transparent); opacity:0.3; }
+    .panel-head { display:flex; align-items:center; justify-content:space-between; padding:11px 18px; border-bottom:1px solid var(--border); background:rgba(0,255,65,0.03); flex-wrap:wrap; gap:8px; }
+    .panel-title { font-size:0.62rem; color:var(--green-dim); letter-spacing:0.12em; }
+    .panel-body  { padding:18px; }
+
+    /* ── ROOM PERFORMANCE BARS ── */
+    .room-perf-item { margin-bottom:18px; }
+    .room-perf-item:last-child { margin-bottom:0; }
+    .rp-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:7px; }
+    .rp-lang   { font-family:var(--font-hud); font-size:0.7rem; font-weight:700; }
+    .rp-score  { font-size:0.68rem; color:rgba(0,255,65,0.55); }
+    .rp-bar    { height:8px; background:rgba(0,255,65,0.07); border-radius:4px; overflow:hidden; position:relative; }
+    .rp-fill   { height:100%; border-radius:4px; transition:width 1.2s cubic-bezier(0.4,0,0.2,1); width:0%; }
+    .rp-stats  { display:flex; gap:14px; margin-top:6px; font-size:0.62rem; }
+    .rp-correct { color:var(--green); }
+    .rp-wrong   { color:var(--red); }
+    .rp-time    { color:rgba(0,255,65,0.4); }
+    .rp-pct     { font-family:var(--font-hud); font-size:0.7rem; font-weight:700; }
+
+    /* ── WEAK TOPICS ── */
+    .weak-list { display:flex; flex-direction:column; gap:10px; }
+    .weak-item { padding:10px 14px; border:1px solid rgba(255,34,51,0.2); border-radius:3px; background:rgba(255,34,51,0.04); }
+    .weak-room  { font-family:var(--font-hud); font-size:0.6rem; font-weight:700; letter-spacing:0.1em; margin-bottom:3px; }
+    .weak-topic { font-size:0.7rem; color:var(--red); letter-spacing:0.06em; }
+    .weak-q     { font-size:0.65rem; color:rgba(255,34,51,0.5); margin-top:3px; line-height:1.4; }
+    .no-weak    { text-align:center; padding:24px; color:rgba(0,255,65,0.4); font-size:0.78rem; }
+
+    /* ── AI ADVICE ── */
+    .ai-advice-box {
+      background:rgba(0,245,255,0.04); border:1px solid rgba(0,245,255,0.2);
+      border-radius:4px; padding:18px;
+    }
+    .ai-advice-header { display:flex; align-items:center; gap:10px; margin-bottom:12px; }
+    .ai-logo { font-size:1.4rem; }
+    .ai-label { font-family:var(--font-hud); font-size:0.62rem; color:var(--cyan); letter-spacing:0.12em; }
+    .ai-model { font-size:0.58rem; color:rgba(0,245,255,0.4); letter-spacing:0.08em; }
+    .ai-text  { font-size:0.82rem; color:#c0f8ff; line-height:1.8; letter-spacing:0.03em; }
+    .ai-loading { display:flex; align-items:center; gap:10px; color:rgba(0,245,255,0.5); font-size:0.75rem; }
+    .ai-spinner { width:14px; height:14px; border:2px solid rgba(0,245,255,0.2); border-top-color:var(--cyan); border-radius:50%; animation:spin 0.7s linear infinite; }
+    @keyframes spin { to{transform:rotate(360deg);} }
+
+    /* ── LEADERBOARD ── */
+    .lb-table  { width:100%; border-collapse:collapse; font-size:0.76rem; }
+    .lb-table th { text-align:left; padding:9px 12px; font-family:var(--font-hud); font-size:0.58rem; color:rgba(0,255,65,0.38); letter-spacing:0.12em; border-bottom:1px solid var(--border); white-space:nowrap; }
+    .lb-table td { padding:10px 12px; border-bottom:1px solid rgba(0,255,65,0.04); color:#a8ffc0; vertical-align:middle; }
+    .lb-table tr:hover td { background:rgba(0,255,65,0.03); }
+    .lb-table tr:last-child td { border-bottom:none; }
+    .lb-table tr.me td { background:rgba(0,255,65,0.07); }
+    .rank-medal { font-size:1.1rem; }
+    .lb-name   { color:var(--green); font-weight:bold; }
+    .lb-score  { font-family:var(--font-hud); font-size:0.78rem; color:var(--amber); text-shadow:0 0 6px rgba(255,183,0,0.3); }
+    .lb-badge  { display:inline-block; padding:2px 7px; border-radius:2px; font-family:var(--font-hud); font-size:0.55rem; font-weight:700; }
+    .lb-badge.you   { background:rgba(0,255,65,0.2); color:var(--green); border:1px solid rgba(0,255,65,0.4); }
+    .lb-badge.batch { background:rgba(0,245,255,0.1); color:var(--cyan); border:1px solid rgba(0,245,255,0.25); }
+    .lb-empty  { text-align:center; padding:30px; color:rgba(0,255,65,0.25); font-size:0.76rem; }
+
+    /* ── CERTIFICATE ── */
+    .cert-section { animation:fadeUp 0.7s ease 0.8s both; }
+    .certificate {
+      border:1px solid rgba(255,183,0,0.3); border-radius:6px;
+      padding:clamp(20px,4vw,40px);
+      background:linear-gradient(135deg,rgba(255,183,0,0.03),rgba(0,255,65,0.02));
+      text-align:center; position:relative; overflow:hidden;
+    }
+    .certificate::before { content:''; position:absolute; top:0;left:0;right:0; height:3px; background:linear-gradient(90deg,transparent,var(--amber),transparent); }
+    .certificate::after  { content:''; position:absolute; bottom:0;left:0;right:0; height:3px; background:linear-gradient(90deg,transparent,var(--amber),transparent); }
+    .cert-top    { font-size:0.62rem; color:rgba(255,183,0,0.5); letter-spacing:0.25em; margin-bottom:8px; }
+    .cert-title  { font-family:var(--font-hud); font-size:clamp(0.8rem,1.5vw,1rem); font-weight:700; letter-spacing:0.15em; color:var(--amber); margin-bottom:16px; }
+    .cert-agent  { font-family:var(--font-retro); font-size:clamp(2.5rem,5vw,4rem); color:var(--green); text-shadow:0 0 20px rgba(0,255,65,0.5); letter-spacing:0.1em; margin-bottom:10px; }
+    .cert-desc   { font-size:0.75rem; color:rgba(255,183,0,0.6); line-height:1.8; letter-spacing:0.08em; max-width:500px; margin:0 auto 16px; }
+    .cert-score  { font-family:var(--font-hud); font-size:1.4rem; color:var(--amber); text-shadow:0 0 14px rgba(255,183,0,0.4); }
+    .cert-date   { font-size:0.62rem; color:rgba(0,255,65,0.3); margin-top:8px; letter-spacing:0.1em; }
+    .cert-seal   { font-size:2.5rem; margin:14px 0 0; display:block; }
+
+    /* ── ANIMATIONS ── */
+    @keyframes fadeUp { from{opacity:0;transform:translateY(20px);}to{opacity:1;transform:none;} }
+
+    ::-webkit-scrollbar{width:5px;} ::-webkit-scrollbar-track{background:var(--bg);} ::-webkit-scrollbar-thumb{background:var(--green-dark);border-radius:3px;}
+  </style>
+</head>
+<body>
+
+<canvas id="bgCanvas"></canvas>
+<div class="scanlines"></div>
+<div class="vignette"></div>
+
+<!-- Loading -->
+<div id="loadingScreen">
+  <div class="load-title">GENERATING REPORT...</div>
+  <div class="load-bar"><div class="load-fill"></div></div>
+  <div class="load-msg" id="loadMsg">&gt; FETCHING SESSION DATA...</div>
+</div>
+
+<div class="page" id="mainPage" style="display:none">
+
+  <!-- Top Nav -->
+  <div class="top-nav">
+    <div class="nav-logo">CODE ESCAPE ROOM // MISSION REPORT</div>
+    <div class="nav-btns">
+      <button class="nav-btn amber" onclick="window.location.href='index.html'">↺ PLAY AGAIN</button>
+      <button class="nav-btn green" onclick="window.location.href='index.html'">↩ MAIN MENU</button>
+    </div>
+  </div>
+
+  <!-- Hero -->
+  <div class="hero">
+    <div class="hero-status">
+      <span class="status-line"></span>
+      MISSION DEBRIEF
+      <span class="status-line right"></span>
+    </div>
+    <div class="hero-name" id="heroName">AGENT</div>
+    <div class="hero-batch" id="heroBatch">—</div>
+    <span class="status-badge" id="statusBadge">—</span>
+  </div>
+
+  <!-- Score Cards -->
+  <div class="score-cards">
+    <div class="score-card" style="--accent:var(--amber)">
+      <span class="sc-icon">🏆</span>
+      <span class="sc-val" id="scTotal">0</span>
+      <span class="sc-label">TOTAL SCORE</span>
+    </div>
+    <div class="score-card" style="--accent:var(--green)">
+      <span class="sc-icon">🏚️</span>
+      <span class="sc-val" id="scRooms">0</span>
+      <span class="sc-label">ROOMS CLEARED</span>
+    </div>
+    <div class="score-card" style="--accent:var(--cyan)">
+      <span class="sc-icon">⏱️</span>
+      <span class="sc-val" id="scTime">—</span>
+      <span class="sc-label">TIME TAKEN</span>
+    </div>
+    <div class="score-card" style="--accent:var(--red)">
+      <span class="sc-icon">❤️</span>
+      <span class="sc-val" id="scLives">—</span>
+      <span class="sc-label">LIVES REMAINING</span>
+    </div>
+    <div class="score-card" style="--accent:var(--purple)">
+      <span class="sc-icon">⚡</span>
+      <span class="sc-val" id="scDiff">—</span>
+      <span class="sc-label">DIFFICULTY</span>
+    </div>
+  </div>
+
+  <!-- Main Grid -->
+  <div class="main-grid">
+
+    <!-- Room Performance -->
+    <div class="panel">
+      <div class="panel-head">
+        <div class="panel-title">// ROOM_PERFORMANCE.log</div>
+      </div>
+      <div class="panel-body">
+        <div id="roomPerfList">
+          <div style="color:rgba(0,255,65,0.3);text-align:center;padding:20px">Loading...</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Weak Topics -->
+    <div class="panel">
+      <div class="panel-head">
+        <div class="panel-title">// WEAK_TOPICS.analysis</div>
+        <div style="font-size:0.58rem;color:rgba(255,34,51,0.5)">AREAS TO IMPROVE</div>
+      </div>
+      <div class="panel-body">
+        <div id="weakTopicsList">
+          <div style="color:rgba(0,255,65,0.3);text-align:center;padding:20px">Loading...</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- AI Advice (full width) -->
+    <div class="panel full">
+      <div class="panel-head">
+        <div class="panel-title">// AI_STUDY_ADVISOR.exe — MISTRAL AI (NVIDIA NIM)</div>
+        <div style="font-size:0.58rem;color:rgba(0,245,255,0.4)">POWERED BY mistral-7b-instruct-v0.2</div>
+      </div>
+      <div class="panel-body">
+        <div class="ai-advice-box">
+          <div class="ai-advice-header">
+            <span class="ai-logo">🤖</span>
+            <div>
+              <div class="ai-label">PERSONALIZED STUDY ADVICE</div>
+              <div class="ai-model">mistralai/mistral-7b-instruct-v0.2 via NVIDIA NIM</div>
+            </div>
+          </div>
+          <div id="aiAdviceContent">
+            <div class="ai-loading">
+              <div class="ai-spinner"></div>
+              <span>Mistral AI is analyzing your performance...</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Leaderboard -->
+  <div class="panel" style="margin-bottom:24px;animation:fadeUp 0.7s ease 0.6s both">
+    <div class="panel-head">
+      <div class="panel-title">// CLASS_LEADERBOARD.db</div>
+      <div style="display:flex;gap:10px;align-items:center">
+        <select id="lbRoomSel" onchange="loadLeaderboard()" style="background:rgba(0,0,0,0.4);border:1px solid var(--border);color:var(--green);font-family:var(--font-mono);font-size:0.68rem;padding:4px 8px;border-radius:2px;outline:none">
+          <option value="overall">OVERALL</option>
+        </select>
+        <span style="font-size:0.58rem;color:rgba(0,255,65,0.35)" id="lbBatchLabel"></span>
+      </div>
+    </div>
+    <div style="overflow-x:auto">
+      <table class="lb-table">
+        <thead>
+          <tr>
+            <th>RANK</th>
+            <th>AGENT NAME</th>
+            <th>BATCH</th>
+            <th>SCORE</th>
+            <th>ROOMS</th>
+          </tr>
+        </thead>
+        <tbody id="lbBody">
+          <tr><td colspan="5"><div class="lb-empty">Loading leaderboard...</div></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Certificate (only if escaped) -->
+  <div class="cert-section" id="certSection" style="display:none">
+    <div class="certificate">
+      <div class="cert-top">// CERTIFICATE_OF_ACHIEVEMENT.exe</div>
+      <div class="cert-title">THIS CERTIFIES THAT</div>
+      <div class="cert-agent" id="certName">AGENT</div>
+      <div class="cert-desc">
+        Successfully breached all vaults of the Code Escape Room,<br>
+        demonstrating superior programming knowledge across all chambers.
+      </div>
+      <div class="cert-score">FINAL SCORE: <span id="certScore">0</span> pts</div>
+      <div class="cert-date" id="certDate">—</div>
+      <span class="cert-seal">🏆</span>
+    </div>
+  </div>
+
+</div><!-- /page -->
+
+<script>
+/* ════════ CONFIG ════════ */
+const API   = '/api';
+let   token = localStorage.getItem('cer_token') || '';
+
+const ROOM_COLORS = {
+  'C':'#ff6b35','C++':'#ffb700','Java':'#00aaff',
+  'SQL':'#00ff41','DSA':'#ff00aa','DAA':'#aa00ff','Python':'#00f5ff'
+};
+
+/* ════════ MATRIX BG (subtle) ════════ */
+const bc=document.getElementById('bgCanvas'), bctx=bc.getContext('2d');
+let bdrops=[], bfs=12;
+function resizeBC(){ bc.width=window.innerWidth; bc.height=window.innerHeight; bdrops=Array.from({length:Math.floor(bc.width/bfs)},()=>Math.random()*-60); }
+function drawBC(){ bctx.fillStyle='rgba(2,12,2,0.05)'; bctx.fillRect(0,0,bc.width,bc.height); bdrops.forEach((y,i)=>{ bctx.fillStyle='#00ff41'; bctx.font=`${bfs}px monospace`; bctx.fillText('01'[Math.floor(Math.random()*2)],i*bfs,y*bfs); if(y*bfs>bc.height&&Math.random()>0.98)bdrops[i]=0; bdrops[i]+=0.25; }); }
+resizeBC(); window.addEventListener('resize',resizeBC); setInterval(drawBC,65);
+
+/* ════════ API HELPER ════════ */
+async function api(endpoint, method='GET', body=null){
+  try{
+    const opts={method,headers:{'Content-Type':'application/json','Authorization':`Bearer ${token}`}};
+    if(body) opts.body=JSON.stringify(body);
+    const res=await fetch(`${API}${endpoint}`,opts);
+    const data=await res.json();
+    return {ok:res.ok,data};
+  }catch(e){ console.error(e); return null; }
+}
+
+/* ════════ INIT ════════ */
+window.addEventListener('DOMContentLoaded', async()=>{
+  const user=JSON.parse(localStorage.getItem('cer_user')||'null');
+  if(!token||!user){ window.location.href='login.html'; return; }
+
+  const sessionId = sessionStorage.getItem('cer_session_id');
+  if(!sessionId){ window.location.href='index.html'; return; }
+
+  setMsg('&gt; FETCHING SESSION DATA...');
+  const res = await api(`/quiz/summary/${sessionId}`);
+  if(!res||!res.ok){ setMsg('&gt; ERROR: Could not load summary'); return; }
+
+  const d = res.data;
+  setMsg('&gt; GENERATING AI ADVICE...');
+
+  renderHero(d);
+  renderScoreCards(d);
+  renderRoomPerformance(d.room_summaries||[]);
+  renderWeakTopics(d.weak_topics||[]);
+  renderCertificate(d);
+  await populateLeaderboardFilter(d.room_summaries||[]);
+  await loadLeaderboard();
+  await getAIAdvice(d);
+
+  document.getElementById('loadingScreen').style.display='none';
+  document.getElementById('mainPage').style.display='block';
+
+  // Animate bars after page shows
+  setTimeout(animateBars, 300);
+});
+
+function setMsg(m){ document.getElementById('loadMsg').textContent=m; }
+
+/* ════════ HERO ════════ */
+function renderHero(d){
+  document.getElementById('heroName').textContent  = (d.student_name||'AGENT').toUpperCase();
+  document.getElementById('heroBatch').textContent = d.batch ? `BATCH: ${d.batch}` : '';
+
+  const badge    = document.getElementById('statusBadge');
+  const statuses = { completed:'🏆 ESCAPED', failed:'💀 DELETED', timeout:'⏰ TIMED OUT', in_progress:'⚡ IN PROGRESS' };
+  badge.textContent = statuses[d.status] || d.status?.toUpperCase();
+  badge.className   = `status-badge ${d.status==='completed'?'escaped':d.status==='failed'?'failed':'timeout'}`;
+}
+
+/* ════════ SCORE CARDS ════════ */
+function renderScoreCards(d){
+  document.getElementById('scTotal').textContent = d.total_score || 0;
+  document.getElementById('scRooms').textContent = (d.room_summaries||[]).filter(r=>r.status==='completed').length;
+  document.getElementById('scTime').textContent  = d.time_taken ? formatTime(d.time_taken) : '—';
+  document.getElementById('scLives').textContent = d.lives_left >= 0 ? '❤'.repeat(Math.max(0,d.lives_left)) || '0' : '—';
+  document.getElementById('scDiff').textContent  = (d.difficulty||'—').toUpperCase();
+}
+
+/* ════════ ROOM PERFORMANCE ════════ */
+function renderRoomPerformance(rooms){
+  const el = document.getElementById('roomPerfList');
+  if(!rooms.length){ el.innerHTML='<div style="color:rgba(0,255,65,0.3);text-align:center;padding:20px">No room data</div>'; return; }
+
+  el.innerHTML = rooms.map(r=>{
+    const col = ROOM_COLORS[r.language] || '#00ff41';
+    const pct = r.percentage || 0;
+    return `
+    <div class="room-perf-item">
+      <div class="rp-header">
+        <span class="rp-lang" style="color:${col}">${r.language} — ${r.room_name||''}</span>
+        <span class="rp-pct" style="color:${col}">${pct}%</span>
+      </div>
+      <div class="rp-bar">
+        <div class="rp-fill" data-width="${pct}" style="background:${col};box-shadow:0 0 8px ${col}40;width:0%"></div>
+      </div>
+      <div class="rp-stats">
+        <span class="rp-correct">✓ ${r.correct||0} correct</span>
+        <span class="rp-wrong">✗ ${r.wrong||0} wrong</span>
+        <span class="rp-time">⏱ ${r.time_taken?formatTime(r.time_taken):'—'}</span>
+        <span style="color:var(--amber);font-size:0.62rem">${r.score||0} pts</span>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function animateBars(){
+  document.querySelectorAll('.rp-fill').forEach(bar=>{
+    const w = bar.getAttribute('data-width');
+    bar.style.width = w + '%';
+  });
+}
+
+/* ════════ WEAK TOPICS ════════ */
+function renderWeakTopics(weak){
+  const el = document.getElementById('weakTopicsList');
+  if(!weak.length){
+    el.innerHTML='<div class="no-weak">🎯 No weak topics detected!<br><span style="font-size:0.65rem;color:rgba(0,255,65,0.3)">Excellent performance across all rooms.</span></div>';
+    return;
+  }
+  el.innerHTML = `<div class="weak-list">${weak.map(w=>{
+    const col = ROOM_COLORS[w.room] || '#ff2233';
+    return `
+    <div class="weak-item">
+      <div class="rp-header" style="margin-bottom:0">
+        <span class="weak-room" style="color:${col}">${w.room}</span>
+        <span style="font-size:0.58rem;color:rgba(255,34,51,0.4)">NEEDS REVIEW</span>
+      </div>
+      <div class="weak-topic">${w.topic}</div>
+      ${w.question?`<div class="weak-q">${w.question}</div>`:''}
+    </div>`;
+  }).join('')}</div>`;
+}
+
+/* ════════ LEADERBOARD ════════ */
+async function populateLeaderboardFilter(rooms){
+  const sel = document.getElementById('lbRoomSel');
+  sel.innerHTML = '<option value="overall">OVERALL</option>' +
+    rooms.map(r=>`<option value="${r.room_id||''}">${r.language}</option>`).join('');
+}
+
+async function loadLeaderboard(){
+  const val  = document.getElementById('lbRoomSel').value;
+  const endpoint = val==='overall' ? '/leaderboard/overall' : `/leaderboard/room/${val}`;
+  const res  = await api(endpoint);
+  const tbody = document.getElementById('lbBody');
+  const user  = JSON.parse(localStorage.getItem('cer_user')||'null');
+  const medals = ['🥇','🥈','🥉'];
+
+  if(!res||!res.ok||!res.data.leaderboard?.length){
+    tbody.innerHTML='<tr><td colspan="5"><div class="lb-empty">No scores recorded yet</div></td></tr>';
+
+    // Show batch label
+    if(res?.data?.my_batch){
+      document.getElementById('lbBatchLabel').textContent = `BATCH: ${res.data.my_batch}`;
+    }
+    return;
+  }
+
+  const lb = res.data.leaderboard;
+  if(res.data.my_batch) document.getElementById('lbBatchLabel').textContent=`BATCH: ${res.data.my_batch}`;
+
+  tbody.innerHTML = lb.map((entry,i)=>`
+    <tr class="${entry.is_me?'me':''}">
+      <td><span class="rank-medal">${medals[i]||entry.rank}</span></td>
+      <td>
+        <span class="lb-name">${entry.name}</span>
+        ${entry.is_me?'<span class="lb-badge you" style="margin-left:6px">YOU</span>':''}
+      </td>
+      <td><span class="lb-badge batch">${entry.batch||'—'}</span></td>
+      <td><span class="lb-score">${entry.total_score||entry.score||0}</span></td>
+      <td style="color:rgba(0,255,65,0.5)">${entry.rooms_completed||entry.correct||'—'}</td>
+    </tr>
+  `).join('');
+}
+
+/* ════════ CERTIFICATE ════════ */
+function renderCertificate(d){
+  if(d.status!=='completed') return;
+  const section = document.getElementById('certSection');
+  section.style.display='block';
+  document.getElementById('certName').textContent  = (d.student_name||'AGENT').toUpperCase();
+  document.getElementById('certScore').textContent = d.total_score||0;
+  document.getElementById('certDate').textContent  = `// ${new Date().toDateString().toUpperCase()}`;
+}
+
+/* ════════ AI ADVICE ════════ */
+async function getAIAdvice(d){
+  const content = document.getElementById('aiAdviceContent');
+  content.innerHTML='<div class="ai-loading"><div class="ai-spinner"></div><span>Mistral AI is generating your personalized study advice...</span></div>';
+
+  const res = await api('/ai/summary','POST',{
+    student_name:  d.student_name,
+    total_score:   d.total_score,
+    weak_topics:   d.weak_topics||[],
+    room_summaries:(d.room_summaries||[]).map(r=>({
+      language:   r.language,
+      correct:    r.correct||0,
+      wrong:      r.wrong||0,
+      percentage: r.percentage||0
+    }))
+  });
+
+  if(res&&res.ok&&res.data.advice){
+    content.innerHTML=`<div class="ai-text">${res.data.advice}</div>`;
+  } else {
+    const weakStr = (d.weak_topics||[]).map(w=>`${w.topic} in ${w.room}`).join(', ') || 'None';
+    content.innerHTML=`<div class="ai-text">
+      Great effort, ${d.student_name||'Agent'}! Your overall score of ${d.total_score||0} reflects your programming knowledge.
+      ${weakStr!=='None'?`Focus on reviewing these weak areas: ${weakStr}.`:'You showed no significant weak areas — excellent work!'}
+      Keep practicing regularly to strengthen your fundamentals across all languages.
+    </div>`;
+  }
+}
+
+/* ════════ UTILS ════════ */
+function formatTime(seconds){
+  if(!seconds) return '—';
+  const m=Math.floor(seconds/60), s=seconds%60;
+  return `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+}
+</script>
+</body>
+</html>

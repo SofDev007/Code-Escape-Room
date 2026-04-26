@@ -1,0 +1,605 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>CODE ESCAPE ROOM — MISSION SELECT</title>
+  <meta name="description" content="Select your vaults and initiate the Code Escape Room. Challenge yourself across 7 programming languages."/>
+  <link rel="stylesheet" href="style.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&family=VT323&display=swap" rel="stylesheet"/>
+  <style>
+    /* ── ROOM SELECTION ADDITIONS ── */
+    :root {
+      --green:      #00ff41;
+      --green-dim:  #00c832;
+      --green-dark: #003d10;
+      --red:        #ff2233;
+      --amber:      #ffb700;
+      --cyan:       #00f5ff;
+    }
+
+    /* Header bar with player info */
+    .player-bar {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 10px 24px;
+      background: rgba(2,12,2,0.92); border-bottom: 1px solid rgba(0,255,65,0.1);
+      backdrop-filter: blur(8px);
+    }
+    .player-bar-left { display: flex; align-items: center; gap: 14px; }
+    .player-bar-logo { font-family: 'Orbitron', sans-serif; font-size: 0.72rem; font-weight: 900; color: var(--green); text-shadow: 0 0 10px var(--green); letter-spacing: 0.15em; }
+    .player-bar-sep  { color: rgba(0,255,65,0.2); }
+    .player-info     { font-size: 0.65rem; color: var(--green-dim); letter-spacing: 0.1em; }
+    .player-info span{ color: var(--green); font-weight: bold; }
+    .player-bar-right{ display: flex; align-items: center; gap: 10px; }
+    .player-btn {
+      font-family: 'Orbitron', sans-serif; font-size: 0.58rem; font-weight: 700;
+      padding: 5px 12px; border-radius: 2px; cursor: pointer; letter-spacing: 0.1em;
+      transition: all 0.2s; border: 1px solid; background: transparent;
+    }
+    .player-btn.issues { border-color: rgba(0,245,255,0.4); color: var(--cyan); }
+    .player-btn.issues:hover { background: rgba(0,245,255,0.1); }
+    .player-btn.logout { border-color: rgba(255,34,51,0.4); color: var(--red); }
+    .player-btn.logout:hover { background: rgba(255,34,51,0.1); }
+
+    /* Push content below fixed header */
+    body { padding-top: 52px; }
+
+    /* ── ROOM GRID ── */
+    .room-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 14px;
+    }
+
+    .room-card {
+      background: rgba(0,18,5,0.88); border: 1px solid rgba(0,255,65,0.1);
+      border-radius: 5px; padding: 16px; cursor: pointer; position: relative;
+      overflow: hidden; transition: all 0.22s;
+      display: flex; flex-direction: column; gap: 10px;
+      user-select: none;
+    }
+    .room-card::before {
+      content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px;
+      background: linear-gradient(90deg, transparent, var(--room-color, #00ff41), transparent);
+      opacity: 0.5;
+    }
+    .room-card:hover { border-color: rgba(0,255,65,0.25); transform: translateY(-2px); box-shadow: 0 6px 24px rgba(0,255,65,0.08); }
+    .room-card.selected {
+      border-color: var(--room-color, #00ff41);
+      box-shadow: 0 0 20px rgba(0,255,65,0.1), inset 0 0 30px rgba(0,255,65,0.04);
+      background: rgba(0,255,65,0.05);
+    }
+    .room-card.selected::after {
+      content: '✓'; position: absolute; top: 8px; right: 10px;
+      font-family: 'Orbitron', sans-serif; font-size: 0.65rem; font-weight: 900;
+      color: var(--room-color, #00ff41); text-shadow: 0 0 8px var(--room-color, #00ff41);
+    }
+
+    .room-card-icon  { font-size: 1.8rem; text-align: center; }
+    .room-card-lang  { font-family: 'Orbitron', sans-serif; font-size: 1.1rem; font-weight: 900; color: var(--room-color, #00ff41); text-shadow: 0 0 10px var(--room-color, #00ff41); letter-spacing: 0.12em; }
+    .room-card-name  { font-size: 0.62rem; letter-spacing: 0.1em; color: rgba(0,255,65,0.45); }
+    .room-card-stats { display: flex; gap: 8px; flex-wrap: wrap; }
+    .room-stat-chip  { font-family: 'Orbitron', sans-serif; font-size: 0.52rem; padding: 2px 7px; border-radius: 2px; border: 1px solid rgba(0,255,65,0.15); color: rgba(0,255,65,0.5); letter-spacing: 0.08em; }
+    .room-stat-chip.qs { border-color: rgba(0,245,255,0.2); color: rgba(0,245,255,0.6); }
+    .room-card-lock  { font-size: 0.6rem; color: rgba(255,34,51,0.5); letter-spacing: 0.1em; display: flex; align-items: center; gap: 4px; }
+
+    /* Select-all / Clear bar */
+    .selection-bar {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 10px 0; flex-wrap: wrap; gap: 10px;
+    }
+    .selection-count { font-family: 'Orbitron', sans-serif; font-size: 0.65rem; color: var(--green-dim); letter-spacing: 0.1em; }
+    .selection-count span { color: var(--green); font-size: 0.9rem; }
+    .sel-btn {
+      font-family: 'Orbitron', sans-serif; font-size: 0.58rem; font-weight: 700;
+      padding: 5px 12px; border-radius: 2px; cursor: pointer; letter-spacing: 0.1em;
+      transition: all 0.2s; border: 1px solid;
+    }
+    .sel-btn.all   { border-color: rgba(0,255,65,0.3); color: var(--green-dim); background: transparent; }
+    .sel-btn.all:hover   { background: rgba(0,255,65,0.08); }
+    .sel-btn.clear { border-color: rgba(255,34,51,0.3); color: var(--red); background: transparent; }
+    .sel-btn.clear:hover { background: rgba(255,34,51,0.08); }
+    .sel-btns { display: flex; gap: 8px; }
+
+    /* Issue Modal */
+    .issue-modal {
+      position: fixed; inset: 0; z-index: 300;
+      background: rgba(2,12,2,0.92); backdrop-filter: blur(8px);
+      display: flex; align-items: center; justify-content: center;
+      opacity: 0; pointer-events: none; transition: opacity 0.3s;
+    }
+    .issue-modal.show { opacity: 1; pointer-events: all; }
+    .issue-box {
+      background: rgba(0,15,5,0.98); border: 1px solid rgba(0,255,65,0.2);
+      border-radius: 6px; width: min(460px, 92vw);
+      position: relative; overflow: hidden;
+      animation: modalIn 0.3s ease;
+    }
+    @keyframes modalIn { from{transform:scale(0.95) translateY(12px);opacity:0;} to{transform:none;opacity:1;} }
+    .issue-box::before {
+      content:''; position:absolute; top:0; left:0; right:0; height:2px;
+      background: linear-gradient(90deg, transparent, var(--cyan), transparent);
+    }
+    .issue-head { display:flex; align-items:center; justify-content:space-between; padding:16px 20px; border-bottom:1px solid rgba(0,255,65,0.1); }
+    .issue-head-title { font-family:'Orbitron',sans-serif; font-size:0.72rem; letter-spacing:0.14em; color:var(--cyan); }
+    .issue-close { background:transparent; border:none; color:rgba(0,255,65,0.4); font-size:1.2rem; cursor:pointer; transition:color 0.2s; }
+    .issue-close:hover { color:var(--red); }
+    .issue-body { padding:20px; display:flex; flex-direction:column; gap:14px; }
+    .issue-label { font-size:0.6rem; color:var(--green-dim); letter-spacing:0.12em; display:block; margin-bottom:5px; }
+    .issue-input {
+      width:100%; background:rgba(0,0,0,0.4); border:1px solid rgba(0,255,65,0.2);
+      border-radius:3px; color:var(--green); font-family:'Share Tech Mono',monospace;
+      font-size:0.85rem; padding:9px 12px; outline:none; transition:all 0.2s;
+    }
+    .issue-input:focus { border-color:var(--green-dim); }
+    .issue-input::placeholder { color:rgba(0,255,65,0.18); }
+    .issue-textarea { resize:vertical; min-height:80px; }
+    .issue-select option { background:#020c02; }
+    .issue-footer { padding:14px 20px; border-top:1px solid rgba(0,255,65,0.08); display:flex; justify-content:flex-end; gap:10px; }
+    .issue-submit-btn {
+      font-family:'Orbitron',sans-serif; font-size:0.62rem; font-weight:700;
+      padding:8px 18px; border:1px solid var(--cyan); background:rgba(0,245,255,0.1);
+      color:var(--cyan); border-radius:3px; cursor:pointer; letter-spacing:0.1em; transition:all 0.2s;
+    }
+    .issue-submit-btn:hover { background:rgba(0,245,255,0.18); }
+    .issue-cancel-btn {
+      font-family:'Orbitron',sans-serif; font-size:0.62rem; font-weight:700;
+      padding:8px 18px; border:1px solid rgba(255,34,51,0.3); background:transparent;
+      color:var(--red); border-radius:3px; cursor:pointer; letter-spacing:0.1em; transition:all 0.2s;
+    }
+    .issue-cancel-btn:hover { background:rgba(255,34,51,0.1); }
+  </style>
+</head>
+<body>
+
+  <!-- Matrix Rain Canvas -->
+  <canvas id="matrixCanvas"></canvas>
+  <div class="scanlines"></div>
+  <div class="vignette"></div>
+
+  <!-- ── PLAYER BAR ── -->
+  <div class="player-bar" id="playerBar">
+    <div class="player-bar-left">
+      <div class="player-bar-logo">CODE ESCAPE ROOM</div>
+      <span class="player-bar-sep">//</span>
+      <div class="player-info">AGENT: <span id="playerNameDisplay">—</span></div>
+    </div>
+    <div class="player-bar-right">
+      <button class="player-btn issues" onclick="openIssueModal()">🎫 REPORT ISSUE</button>
+      <button class="player-btn logout" onclick="logout()">⏻ LOGOUT</button>
+    </div>
+  </div>
+
+  <!-- Issue Report Modal -->
+  <div class="issue-modal" id="issueModal">
+    <div class="issue-box">
+      <div class="issue-head">
+        <div class="issue-head-title">// REPORT AN ISSUE</div>
+        <button class="issue-close" onclick="closeIssueModal()">✕</button>
+      </div>
+      <div class="issue-body">
+        <div>
+          <label class="issue-label">ISSUE CATEGORY</label>
+          <select class="issue-input issue-select" id="issueCategory">
+            <option value="bug">🐛 Bug / Technical Issue</option>
+            <option value="question">❓ Wrong Question / Answer</option>
+            <option value="access">🔑 Room Access Problem</option>
+            <option value="general">💬 General Feedback</option>
+          </select>
+        </div>
+        <div>
+          <label class="issue-label">TITLE</label>
+          <input type="text" class="issue-input" id="issueTitle" placeholder="Brief description of the issue..."/>
+        </div>
+        <div>
+          <label class="issue-label">DESCRIPTION</label>
+          <textarea class="issue-input issue-textarea" id="issueDesc" placeholder="Describe the issue in detail..."></textarea>
+        </div>
+        <div id="issueError" style="font-size:0.68rem;color:var(--red);display:none;"></div>
+      </div>
+      <div class="issue-footer">
+        <button class="issue-cancel-btn" onclick="closeIssueModal()">CANCEL</button>
+        <button class="issue-submit-btn" id="issueSubmitBtn" onclick="submitIssue()">📨 SUBMIT REPORT</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- BOOT SCREEN -->
+  <div id="bootScreen">
+    <div class="boot-content">
+      <div class="boot-line" id="bl1">&gt; INITIALIZING SYSTEM...</div>
+      <div class="boot-line" id="bl2">&gt; LOADING ESCAPE PROTOCOLS...</div>
+      <div class="boot-line" id="bl3">&gt; BREACH DETECTED. LOCKDOWN ACTIVE.</div>
+      <div class="boot-line" id="bl4">&gt; IDENTIFY YOURSELF TO PROCEED.</div>
+      <div class="boot-bar"><div class="boot-progress" id="bootProgress"></div></div>
+    </div>
+  </div>
+
+  <!-- MAIN LANDING -->
+  <div id="mainScreen" class="hidden">
+
+    <!-- Header -->
+    <header class="site-header">
+      <div class="header-glitch-wrapper">
+        <div class="skull-icon">&#9760;</div>
+        <h1 class="site-title" data-text="CODE ESCAPE ROOM">CODE ESCAPE ROOM</h1>
+        <div class="skull-icon">&#9760;</div>
+      </div>
+      <p class="site-subtitle">&gt; YOU ARE TRAPPED INSIDE THE SYSTEM. CRACK THE CODE. ESCAPE OR BE DELETED. &lt;</p>
+      <div class="header-divider">
+        <span class="div-line"></span>
+        <span class="div-line"></span>
+      </div>
+    </header>
+
+    <!-- Main Content Grid -->
+    <main class="main-grid">
+
+      <!-- LEFT: Story Panel -->
+      <section class="panel story-panel">
+        <div class="panel-header">
+          <span class="panel-tag">MISSION_BRIEF</span>
+        </div>
+        <div class="panel-body">
+          <p class="story-text">A rogue AI has hijacked the central server. Encrypted vaults stand between you and freedom.</p>
+          <p class="story-text">Each vault is locked by a <span class="hl">programming cipher</span>. Answer correctly — the door opens. Fail — the system tightens its grip.</p>
+          <p class="story-text">You have <span class="hl">3 lives</span> and a racing clock. Think fast. Code faster.</p>
+
+          <!-- Dynamic vault list -->
+          <div class="vault-list" id="vaultList">
+            <div style="font-size:0.7rem;color:rgba(0,255,65,0.3);text-align:center;padding:16px">
+              &gt; Loading vault registry...
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- CENTER: Mission Control -->
+      <section class="panel entry-panel">
+        <div class="panel-header">
+          <span class="panel-tag">MISSION CONTROL</span>
+        </div>
+        <div class="panel-body entry-body">
+
+          <div class="terminal-prompt">
+            <span class="prompt-symbol">&gt;_</span>
+            <span class="prompt-text" id="typedPrompt"></span>
+            <span class="cursor-blink">|</span>
+          </div>
+
+          <!-- Room Selection -->
+          <div class="input-group" style="margin-top:8px;">
+            <label class="input-label">SELECT VAULT ROOMS TO ENTER:</label>
+            <div class="selection-bar">
+              <div class="selection-count"><span id="selectedCount">0</span> vaults selected</div>
+              <div class="sel-btns">
+                <button class="sel-btn all" onclick="selectAllRooms()">SELECT ALL</button>
+                <button class="sel-btn clear" onclick="clearRooms()">CLEAR</button>
+              </div>
+            </div>
+            <div class="room-grid" id="roomSelectGrid">
+              <div style="font-size:0.7rem;color:rgba(0,255,65,0.3);grid-column:1/-1;text-align:center;padding:20px">
+                &gt; Fetching available vaults...
+              </div>
+            </div>
+          </div>
+
+          <!-- Difficulty -->
+          <div class="input-group">
+            <label class="input-label">SELECT DIFFICULTY:</label>
+            <div class="difficulty-selector">
+              <button class="diff-btn active" data-diff="easy">EASY</button>
+              <button class="diff-btn" data-diff="medium">MEDIUM</button>
+              <button class="diff-btn" data-diff="hard">HARD</button>
+            </div>
+          </div>
+
+          <button class="start-btn" id="startBtn" onclick="startGame()">
+            <span class="btn-glitch" data-text="[ INITIATE ESCAPE ]">[ INITIATE ESCAPE ]</span>
+            <span class="btn-arrow">▶▶</span>
+          </button>
+
+          <div class="warning-strip">
+            <span class="warn-icon">⚠</span>
+            WARNING: INCORRECT ANSWERS WILL COST A LIFE
+            <span class="warn-icon">⚠</span>
+          </div>
+
+          <div class="lives-display">
+            <span class="lives-label">LIVES:</span>
+            <span class="life-dot">❤</span>
+            <span class="life-dot">❤</span>
+            <span class="life-dot">❤</span>
+          </div>
+
+          <div class="hints-display">
+            <span class="hints-label">HINTS AVAILABLE:</span>
+            <span class="hint-badge" id="hintsDisplay">3</span>
+          </div>
+
+        </div>
+      </section>
+
+      <!-- RIGHT: Leaderboard + Stats -->
+      <section class="panel right-panel">
+
+        <!-- Leaderboard -->
+        <div class="sub-panel leaderboard-panel">
+          <div class="panel-header">
+            <span class="panel-tag">LEADERBOARD</span>
+          </div>
+          <div class="panel-body">
+            <div class="lb-header-row">
+              <span>RANK</span><span>AGENT</span><span>SCORE</span><span>TIME</span>
+            </div>
+            <div id="leaderboardList" class="lb-list">
+              <div class="lb-empty">&gt; NO ENTRIES YET. BE THE FIRST TO ESCAPE.</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Stats Panel -->
+        <div class="sub-panel stats-panel">
+          <div class="panel-header">
+            <span class="panel-tag">SYSTEM STATS</span>
+          </div>
+          <div class="panel-body stats-body">
+            <div class="stat-row">
+              <span class="stat-label">TOTAL ATTEMPTS</span>
+              <span class="stat-val" id="statAttempts">0</span>
+            </div>
+            <div class="stat-row">
+              <span class="stat-label">SUCCESSFUL ESCAPES</span>
+              <span class="stat-val" id="statEscapes">0</span>
+            </div>
+            <div class="stat-row">
+              <span class="stat-label">HARDEST ROOM</span>
+              <span class="stat-val" id="statHardest">SQL</span>
+            </div>
+            <div class="stat-row">
+              <span class="stat-label">SYSTEM STATUS</span>
+              <span class="stat-val blink-red" id="statStatus">🔴 LOCKED</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- How to Play -->
+        <div class="sub-panel howto-panel">
+          <div class="panel-header">
+            <span class="panel-tag">HOW TO PLAY</span>
+          </div>
+          <div class="panel-body">
+            <ul class="howto-list">
+              <li><span class="li-num">01.</span> Select your vault rooms below</li>
+              <li><span class="li-num">02.</span> Choose your difficulty level</li>
+              <li><span class="li-num">03.</span> Solve code puzzles in each room</li>
+              <li><span class="li-num">04.</span> Timer counts down — stay sharp</li>
+              <li><span class="li-num">05.</span> Wrong answer = lose a life</li>
+              <li><span class="li-num">06.</span> Use hints wisely — limited supply</li>
+            </ul>
+          </div>
+        </div>
+
+      </section>
+    </main>
+
+    <!-- Footer -->
+    <footer class="site-footer">
+      <span class="footer-txt">&gt; MADE BY: ARNAV • DEVANSH • AVIRAL</span>
+      <span class="footer-sep"> // </span>
+      <span class="footer-txt">BTech IT — Group Project #3</span>
+      <span class="footer-sep"> // </span>
+      <span class="footer-txt blink-green">SYS_VER: 2.0.0</span>
+    </footer>
+
+  </div>
+
+  <script src="script.js"></script>
+  <script>
+  /* ════════ ROOM SELECTION & HOME ENHANCEMENTS ════════ */
+  const API      = '/api';
+  const token    = localStorage.getItem('cer_token') || '';
+  const user     = JSON.parse(localStorage.getItem('cer_user') || 'null');
+
+  const ROOM_COLORS = {
+    'C':'#ff6b35','C++':'#ffb700','Java':'#00aaff',
+    'SQL':'#00ff41','DSA':'#ff00aa','DAA':'#aa00ff','Python':'#00f5ff'
+  };
+  const ROOM_ICONS = {
+    'C':'🔴','C++':'🟡','Java':'🔵','SQL':'🟢','DSA':'🟣','DAA':'🟤','Python':'🔷'
+  };
+
+  let allRooms      = [];
+  let selectedRooms = new Set();
+
+  /* ── AUTH GUARD ── */
+  window.addEventListener('DOMContentLoaded', () => {
+    if (!token || !user) {
+      window.location.href = 'login.html';
+      return;
+    }
+    // Admin should be in admin.html
+    if (user.role === 'admin') { window.location.href = 'admin.html'; return; }
+
+    document.getElementById('playerNameDisplay').textContent =
+      (user.username || user.name || 'AGENT').toUpperCase();
+
+    loadRooms();
+  });
+
+  /* ── LOGOUT ── */
+  function logout() {
+    localStorage.removeItem('cer_token');
+    localStorage.removeItem('cer_refresh');
+    localStorage.removeItem('cer_user');
+    window.location.href = 'login.html';
+  }
+
+  /* ── LOAD ROOMS ── */
+  async function loadRooms() {
+    try {
+      const res  = await fetch(`${API}/student/rooms`, {
+        headers: {'Authorization': `Bearer ${token}`}
+      });
+      const data = await res.json();
+
+      if (res.status === 401) { logout(); return; }
+
+      allRooms = data.rooms || [];
+
+      // If no rooms assigned, try fetching all active rooms as fallback
+      if (allRooms.length === 0) {
+        const allRes  = await fetch(`${API}/quiz/rooms`, {headers:{'Authorization':`Bearer ${token}`}});
+        const allData = await allRes.json();
+        allRooms = allData.rooms || [];
+      }
+
+      renderRoomGrid();
+      renderVaultList();
+    } catch (e) {
+      document.getElementById('roomSelectGrid').innerHTML =
+        '<div style="font-size:0.7rem;color:var(--red);grid-column:1/-1;text-align:center;padding:20px">⚠ Cannot connect to server</div>';
+    }
+  }
+
+  /* ── RENDER ROOM CARDS ── */
+  function renderRoomGrid() {
+    const grid = document.getElementById('roomSelectGrid');
+    if (!allRooms.length) {
+      grid.innerHTML = '<div style="font-size:0.7rem;color:rgba(0,255,65,0.3);grid-column:1/-1;text-align:center;padding:20px">> No vaults assigned yet. Contact your moderator.</div>';
+      return;
+    }
+    grid.innerHTML = '';
+    allRooms.forEach(room => {
+      const color = ROOM_COLORS[room.language] || '#00ff41';
+      const icon  = ROOM_ICONS[room.language]  || '🔒';
+      const card  = document.createElement('div');
+      card.className    = 'room-card';
+      card.id           = `roomCard_${room.id}`;
+      card.style.setProperty('--room-color', color);
+      card.innerHTML = `
+        <div class="room-card-icon">${icon}</div>
+        <div class="room-card-lang" style="color:${color};text-shadow:0 0 10px ${color}">${room.language}</div>
+        <div class="room-card-name">${room.name}</div>
+        <div class="room-card-stats">
+          <span class="room-stat-chip">${room.time_limit||180}s</span>
+          ${room.question_count !== undefined ? `<span class="room-stat-chip qs">${room.question_count} QS</span>` : ''}
+        </div>
+      `;
+      card.addEventListener('click', () => toggleRoom(room.id, card));
+      grid.appendChild(card);
+    });
+    updateSelectedCount();
+  }
+
+  /* ── RENDER VAULT LIST (left panel) ── */
+  function renderVaultList() {
+    const list = document.getElementById('vaultList');
+    list.innerHTML = '';
+    allRooms.forEach(room => {
+      const color = ROOM_COLORS[room.language] || '#00ff41';
+      list.innerHTML += `
+        <div class="vault-item" id="v-${room.language.toLowerCase().replace('+','')}">
+          <span class="vault-icon">${ROOM_ICONS[room.language]||'🔒'}</span>
+          <span class="vault-lang" style="color:${color}">${room.language}</span>
+          <span class="vault-name">${room.name}</span>
+          <span class="vault-lock">🔒 LOCKED</span>
+        </div>`;
+    });
+  }
+
+  /* ── TOGGLE ROOM ── */
+  function toggleRoom(roomId, card) {
+    if (selectedRooms.has(roomId)) {
+      selectedRooms.delete(roomId);
+      card.classList.remove('selected');
+    } else {
+      selectedRooms.add(roomId);
+      card.classList.add('selected');
+    }
+    updateSelectedCount();
+  }
+
+  function selectAllRooms() {
+    allRooms.forEach(r => {
+      selectedRooms.add(r.id);
+      const card = document.getElementById(`roomCard_${r.id}`);
+      if (card) card.classList.add('selected');
+    });
+    updateSelectedCount();
+  }
+
+  function clearRooms() {
+    selectedRooms.clear();
+    document.querySelectorAll('.room-card').forEach(c => c.classList.remove('selected'));
+    updateSelectedCount();
+  }
+
+  function updateSelectedCount() {
+    document.getElementById('selectedCount').textContent = selectedRooms.size;
+    // Update hint count based on difficulty
+    const diff = sessionStorage.getItem('cer_diff') || 'easy';
+    const hints = {easy:5, medium:3, hard:1};
+    const el = document.getElementById('hintsDisplay');
+    if (el) el.textContent = hints[diff] || 3;
+  }
+
+  /* ── ISSUE MODAL ── */
+  function openIssueModal() {
+    document.getElementById('issueModal').classList.add('show');
+    document.getElementById('issueError').style.display = 'none';
+  }
+  function closeIssueModal() {
+    document.getElementById('issueModal').classList.remove('show');
+  }
+  async function submitIssue() {
+    const title    = document.getElementById('issueTitle').value.trim();
+    const desc     = document.getElementById('issueDesc').value.trim();
+    const category = document.getElementById('issueCategory').value;
+    const errEl    = document.getElementById('issueError');
+    const btn      = document.getElementById('issueSubmitBtn');
+
+    if (!title || !desc) {
+      errEl.textContent = '⚠ Title and description are required';
+      errEl.style.display = 'block';
+      return;
+    }
+    errEl.style.display = 'none';
+    btn.disabled = true; btn.textContent = 'SUBMITTING...';
+
+    try {
+      const res = await fetch(`${API}/student/issues`, {
+        method: 'POST',
+        headers: {'Content-Type':'application/json','Authorization':`Bearer ${token}`},
+        body: JSON.stringify({title, description: desc, category})
+      });
+      if (res.ok) {
+        closeIssueModal();
+        document.getElementById('issueTitle').value = '';
+        document.getElementById('issueDesc').value  = '';
+        // Show subtle toast
+        showToast('Issue reported! Moderator will review it.');
+      } else {
+        const d = await res.json();
+        errEl.textContent = '⚠ ' + (d.error || 'Failed to submit');
+        errEl.style.display = 'block';
+      }
+    } catch (e) {
+      errEl.textContent = '⚠ Cannot connect to server';
+      errEl.style.display = 'block';
+    }
+    btn.disabled = false; btn.textContent = '📨 SUBMIT REPORT';
+  }
+
+  function showToast(msg) {
+    let t = document.createElement('div');
+    t.style.cssText = 'position:fixed;bottom:24px;right:24px;z-index:999;padding:12px 20px;background:rgba(0,20,5,0.96);border:1px solid #00ff41;border-radius:4px;font-size:0.75rem;color:#00ff41;letter-spacing:0.06em;transition:all 0.4s;opacity:0;transform:translateY(20px);';
+    t.textContent = msg;
+    document.body.appendChild(t);
+    setTimeout(() => { t.style.opacity='1'; t.style.transform='translateY(0)'; }, 10);
+    setTimeout(() => { t.style.opacity='0'; setTimeout(() => t.remove(), 400); }, 3000);
+  }
+  </script>
+</body>
+</html>

@@ -1,0 +1,745 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>CODE ESCAPE ROOM — LOGIN</title>
+  <meta name="description" content="Login to Code Escape Room. Players and Moderators authenticate here."/>
+  <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&family=VT323&display=swap" rel="stylesheet"/>
+  <style>
+    :root {
+      --green:      #00ff41;
+      --green-dim:  #00c832;
+      --green-dark: #003d10;
+      --red:        #ff2233;
+      --amber:      #ffb700;
+      --cyan:       #00f5ff;
+      --bg:         #020c02;
+      --panel-bg:   rgba(0, 18, 5, 0.92);
+      --font-mono:  'Share Tech Mono', monospace;
+      --font-hud:   'Orbitron', sans-serif;
+      --font-retro: 'VT323', monospace;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { width: 100%; height: 100%; background: var(--bg); color: var(--green); font-family: var(--font-mono); overflow: hidden; }
+
+    /* ── MATRIX CANVAS ── */
+    #matrixCanvas { position: fixed; inset: 0; z-index: 0; opacity: 0.15; }
+
+    /* ── OVERLAYS ── */
+    .scanlines {
+      position: fixed; inset: 0; z-index: 1; pointer-events: none;
+      background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.07) 2px, rgba(0,0,0,0.07) 4px);
+    }
+    .vignette {
+      position: fixed; inset: 0; z-index: 2; pointer-events: none;
+      background: radial-gradient(ellipse at center, transparent 40%, rgba(0,0,0,0.92) 100%);
+    }
+
+    /* ── MAIN LAYOUT ── */
+    .login-wrapper {
+      position: relative; z-index: 10;
+      width: 100%; height: 100vh;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+    }
+
+    /* ── LEFT PANEL — Branding ── */
+    .brand-panel {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      padding: clamp(32px, 6vw, 80px);
+      border-right: 1px solid rgba(0,255,65,0.1);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .brand-panel::before {
+      content: '';
+      position: absolute;
+      top: 0; right: 0; bottom: 0;
+      width: 1px;
+      background: linear-gradient(180deg, transparent, var(--green), transparent);
+      opacity: 0.4;
+    }
+
+    /* Floating code lines decoration */
+    .code-deco {
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      pointer-events: none;
+      overflow: hidden;
+    }
+    .code-line {
+      position: absolute;
+      font-family: var(--font-mono);
+      font-size: 0.7rem;
+      color: rgba(0,255,65,0.06);
+      white-space: nowrap;
+      animation: driftUp 20s linear infinite;
+    }
+
+    @keyframes driftUp {
+      from { transform: translateY(110vh); }
+      to   { transform: translateY(-10vh); }
+    }
+
+    .brand-tag {
+      font-family: var(--font-mono);
+      font-size: 0.7rem;
+      color: var(--green-dim);
+      letter-spacing: 0.2em;
+      margin-bottom: 20px;
+      opacity: 0;
+      animation: fadeSlideIn 0.6s ease 0.3s forwards;
+    }
+
+    .brand-title {
+      font-family: var(--font-hud);
+      font-size: clamp(2rem, 4vw, 3.2rem);
+      font-weight: 900;
+      line-height: 1.1;
+      letter-spacing: 0.08em;
+      color: var(--green);
+      text-shadow: 0 0 30px rgba(0,255,65,0.4), 0 0 60px rgba(0,255,65,0.15);
+      margin-bottom: 16px;
+      opacity: 0;
+      animation: fadeSlideIn 0.6s ease 0.5s forwards;
+    }
+
+    .brand-sub {
+      font-size: clamp(0.75rem, 1.2vw, 0.88rem);
+      color: rgba(0,255,65,0.55);
+      line-height: 1.8;
+      letter-spacing: 0.05em;
+      margin-bottom: 36px;
+      opacity: 0;
+      animation: fadeSlideIn 0.6s ease 0.7s forwards;
+    }
+
+    /* Room indicators */
+    .room-indicators {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      opacity: 0;
+      animation: fadeSlideIn 0.6s ease 0.9s forwards;
+    }
+
+    .room-ind {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 14px;
+      border: 1px solid rgba(0,255,65,0.08);
+      border-radius: 3px;
+      background: rgba(0,255,65,0.02);
+      transition: all 0.2s;
+    }
+    .room-ind:hover {
+      border-color: rgba(0,255,65,0.2);
+      background: rgba(0,255,65,0.05);
+    }
+
+    .room-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .room-ind-name {
+      font-family: var(--font-hud);
+      font-size: 0.62rem;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      flex: 1;
+    }
+    .room-ind-tag {
+      font-size: 0.6rem;
+      color: rgba(0,255,65,0.35);
+      letter-spacing: 0.08em;
+    }
+
+    .brand-footer {
+      margin-top: 32px;
+      font-size: 0.62rem;
+      color: rgba(0,255,65,0.25);
+      letter-spacing: 0.1em;
+      opacity: 0;
+      animation: fadeSlideIn 0.6s ease 1.1s forwards;
+    }
+
+    /* ── RIGHT PANEL — Login Form ── */
+    .form-panel {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      padding: clamp(24px, 5vw, 60px);
+    }
+
+    .login-box {
+      width: 100%;
+      max-width: 420px;
+      background: var(--panel-bg);
+      border: 1px solid rgba(0,255,65,0.2);
+      border-radius: 6px;
+      overflow: hidden;
+      box-shadow: 0 0 60px rgba(0,255,65,0.08), 0 0 120px rgba(0,255,65,0.04);
+      position: relative;
+      opacity: 0;
+      animation: fadeSlideIn 0.7s ease 0.4s forwards;
+    }
+
+    .login-box::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 2px;
+      background: linear-gradient(90deg, transparent, var(--green), transparent);
+    }
+
+    /* Box header */
+    .box-header {
+      padding: 18px 24px;
+      border-bottom: 1px solid rgba(0,255,65,0.1);
+      background: rgba(0,255,65,0.03);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .box-title {
+      font-family: var(--font-hud);
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.15em;
+      color: var(--green);
+    }
+    .box-status {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.6rem;
+      color: var(--green-dim);
+      letter-spacing: 0.08em;
+    }
+    .status-dot {
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: var(--green);
+      box-shadow: 0 0 6px var(--green);
+      animation: pulse 2s infinite;
+    }
+
+    /* Role toggle */
+    .role-toggle {
+      display: flex;
+      margin: 24px 24px 0;
+      border: 1px solid rgba(0,255,65,0.2);
+      border-radius: 3px;
+      overflow: hidden;
+    }
+    .role-btn {
+      flex: 1;
+      padding: 10px;
+      background: transparent;
+      border: none;
+      color: rgba(0,255,65,0.4);
+      font-family: var(--font-hud);
+      font-size: 0.65rem;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .role-btn.active {
+      background: rgba(0,255,65,0.12);
+      color: var(--green);
+      text-shadow: 0 0 8px var(--green);
+    }
+    .role-btn:first-child { border-right: 1px solid rgba(0,255,65,0.2); }
+
+    /* Form body */
+    .box-body { padding: 24px; display: flex; flex-direction: column; gap: 18px; }
+
+    /* Terminal prompt */
+    .terminal-line {
+      font-family: var(--font-retro);
+      font-size: 1.1rem;
+      color: var(--green-dim);
+      padding: 8px 12px;
+      background: rgba(0,0,0,0.3);
+      border-radius: 2px;
+      border-left: 2px solid var(--green-dim);
+    }
+    .cursor { animation: blink 0.8s step-end infinite; }
+
+    /* Input groups */
+    .input-group { display: flex; flex-direction: column; gap: 7px; }
+    .input-label {
+      font-size: 0.62rem;
+      color: var(--green-dim);
+      letter-spacing: 0.12em;
+    }
+
+    .input-wrap { position: relative; }
+    .input-icon {
+      position: absolute;
+      left: 12px; top: 50%;
+      transform: translateY(-50%);
+      font-size: 0.9rem;
+      opacity: 0.4;
+      pointer-events: none;
+    }
+
+    .cyber-input {
+      width: 100%;
+      background: rgba(0,0,0,0.45);
+      border: 1px solid rgba(0,255,65,0.25);
+      border-radius: 3px;
+      color: var(--green);
+      font-family: var(--font-mono);
+      font-size: 0.92rem;
+      padding: 11px 14px 11px 36px;
+      outline: none;
+      letter-spacing: 0.06em;
+      transition: all 0.2s;
+    }
+    .cyber-input::placeholder { color: rgba(0,255,65,0.2); }
+    .cyber-input:focus {
+      border-color: var(--green);
+      box-shadow: 0 0 14px rgba(0,255,65,0.2), inset 0 0 8px rgba(0,255,65,0.04);
+    }
+    .cyber-input.error { border-color: var(--red); box-shadow: 0 0 12px rgba(255,34,51,0.2); }
+
+    /* Error message */
+    .error-msg {
+      font-size: 0.68rem;
+      color: var(--red);
+      text-shadow: 0 0 6px rgba(255,34,51,0.4);
+      letter-spacing: 0.06em;
+      min-height: 16px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    /* Login button */
+    .login-btn {
+      width: 100%;
+      padding: 13px;
+      background: linear-gradient(135deg, rgba(0,255,65,0.12), rgba(0,200,50,0.05));
+      border: 1px solid var(--green);
+      border-radius: 3px;
+      color: var(--green);
+      font-family: var(--font-hud);
+      font-size: 0.8rem;
+      font-weight: 700;
+      letter-spacing: 0.18em;
+      cursor: pointer;
+      transition: all 0.2s;
+      text-shadow: 0 0 10px var(--green);
+      box-shadow: 0 0 20px rgba(0,255,65,0.1);
+      position: relative;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+    }
+    .login-btn:hover {
+      background: rgba(0,255,65,0.18);
+      box-shadow: 0 0 30px rgba(0,255,65,0.25);
+      transform: translateY(-1px);
+    }
+    .login-btn:active { transform: translateY(0); }
+    .login-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+    .btn-spinner { display: none; width: 14px; height: 14px; border: 2px solid rgba(0,255,65,0.3); border-top-color: var(--green); border-radius: 50%; animation: spin 0.7s linear infinite; }
+    .login-btn.loading .btn-spinner { display: block; }
+    .login-btn.loading .btn-text { opacity: 0.6; }
+
+    /* Box footer */
+    .box-footer {
+      padding: 14px 24px;
+      border-top: 1px solid rgba(0,255,65,0.08);
+      background: rgba(0,0,0,0.2);
+      text-align: center;
+      font-size: 0.62rem;
+      color: rgba(0,255,65,0.3);
+      letter-spacing: 0.08em;
+    }
+
+    /* ── SUCCESS FLASH ── */
+    .success-overlay {
+      position: fixed; inset: 0; z-index: 100;
+      background: rgba(0,255,65,0.05);
+      display: flex; align-items: center; justify-content: center;
+      opacity: 0; pointer-events: none;
+      transition: opacity 0.3s;
+    }
+    .success-overlay.show { opacity: 1; }
+    .success-msg {
+      font-family: var(--font-retro);
+      font-size: 2.5rem;
+      color: var(--green);
+      text-shadow: 0 0 30px var(--green);
+      letter-spacing: 0.2em;
+      animation: glitchPulse 0.5s infinite;
+    }
+
+    /* ── UTILITIES ── */
+    @keyframes fadeSlideIn {
+      from { opacity: 0; transform: translateY(16px); }
+      to   { opacity: 1; transform: none; }
+    }
+    @keyframes blink   { 50% { opacity: 0; } }
+    @keyframes pulse   { 0%,100%{opacity:1;} 50%{opacity:0.4;} }
+    @keyframes spin    { to { transform: rotate(360deg); } }
+    @keyframes glitchPulse {
+      0%,100% { text-shadow: 0 0 30px var(--green); }
+      50% { text-shadow: -2px 0 var(--red), 2px 0 var(--cyan), 0 0 30px var(--green); }
+    }
+
+    ::-webkit-scrollbar { width: 4px; }
+    ::-webkit-scrollbar-track { background: var(--bg); }
+    ::-webkit-scrollbar-thumb { background: var(--green-dark); }
+
+    @media (max-width: 768px) {
+      .login-wrapper { grid-template-columns: 1fr; }
+      .brand-panel { display: none; }
+      .form-panel { padding: 24px 16px; }
+    }
+  </style>
+</head>
+<body>
+
+<canvas id="matrixCanvas"></canvas>
+<div class="scanlines"></div>
+<div class="vignette"></div>
+
+<!-- Success overlay -->
+<div class="success-overlay" id="successOverlay">
+  <div class="success-msg" id="successMsg">ACCESS GRANTED</div>
+</div>
+
+<div class="login-wrapper">
+
+  <!-- LEFT — Branding -->
+  <div class="brand-panel">
+    <!-- Floating code decoration -->
+    <div class="code-deco" id="codeDeco"></div>
+
+    <div class="brand-tag">&gt; SYSTEM v2.0 // AUTHENTICATED ACCESS ONLY</div>
+
+    <h1 class="brand-title">CODE<br>ESCAPE<br>ROOM</h1>
+
+    <p class="brand-sub">
+      A hacker's gauntlet of programming puzzles.<br>
+      Seven vaults. Seven languages. One leaderboard.<br>
+      Prove your code is stronger than the machine.
+    </p>
+
+    <!-- Room list -->
+    <div class="room-indicators">
+      <div class="room-ind">
+        <div class="room-dot" style="background:#ff6b35;box-shadow:0 0 6px #ff6b35"></div>
+        <span class="room-ind-name" style="color:#ff6b35">C</span>
+        <span class="room-ind-tag">THE FOUNDATION DUNGEON</span>
+      </div>
+      <div class="room-ind">
+        <div class="room-dot" style="background:#ffb700;box-shadow:0 0 6px #ffb700"></div>
+        <span class="room-ind-name" style="color:#ffb700">C++</span>
+        <span class="room-ind-tag">THE OBJECT CHAMBER</span>
+      </div>
+      <div class="room-ind">
+        <div class="room-dot" style="background:#00aaff;box-shadow:0 0 6px #00aaff"></div>
+        <span class="room-ind-name" style="color:#00aaff">JAVA</span>
+        <span class="room-ind-tag">THE BYTECODE VAULT</span>
+      </div>
+      <div class="room-ind">
+        <div class="room-dot" style="background:#00ff41;box-shadow:0 0 6px #00ff41"></div>
+        <span class="room-ind-name" style="color:#00ff41">SQL</span>
+        <span class="room-ind-tag">THE DATABASE CORE</span>
+      </div>
+      <div class="room-ind">
+        <div class="room-dot" style="background:#ff00aa;box-shadow:0 0 6px #ff00aa"></div>
+        <span class="room-ind-name" style="color:#ff00aa">DSA</span>
+        <span class="room-ind-tag">THE ALGORITHM LABYRINTH</span>
+      </div>
+      <div class="room-ind">
+        <div class="room-dot" style="background:#aa00ff;box-shadow:0 0 6px #aa00ff"></div>
+        <span class="room-ind-name" style="color:#aa00ff">DAA</span>
+        <span class="room-ind-tag">THE COMPLEXITY FORTRESS</span>
+      </div>
+      <div class="room-ind">
+        <div class="room-dot" style="background:#00f5ff;box-shadow:0 0 6px #00f5ff"></div>
+        <span class="room-ind-name" style="color:#00f5ff">PYTHON</span>
+        <span class="room-ind-tag">THE SCRIPTED REALM</span>
+      </div>
+    </div>
+
+    <div class="brand-footer">&gt; MADE BY: ARNAV • DEVANSH • AVIRAL // BTech IT</div>
+  </div>
+
+  <!-- RIGHT — Login Form -->
+  <div class="form-panel">
+    <div class="login-box">
+
+      <!-- Header -->
+      <div class="box-header">
+        <div class="box-title">AGENT AUTHENTICATION</div>
+        <div class="box-status">
+          <div class="status-dot"></div>
+          <span>SYSTEM ONLINE</span>
+        </div>
+      </div>
+
+      <!-- Role Toggle -->
+      <div class="role-toggle">
+        <button class="role-btn active" id="playerBtn" onclick="setRole('student')">
+          ⚡ PLAYER
+        </button>
+        <button class="role-btn" id="moderatorBtn" onclick="setRole('admin')">
+          🛡️ MODERATOR
+        </button>
+      </div>
+
+      <!-- Form -->
+      <div class="box-body">
+
+        <!-- Terminal prompt -->
+        <div class="terminal-line">
+          &gt; <span id="rolePrompt">PLAYER</span>_LOGIN.exe<span class="cursor">_</span>
+        </div>
+
+        <!-- Username -->
+        <div class="input-group">
+          <label class="input-label">USERNAME</label>
+          <div class="input-wrap">
+            <span class="input-icon">⌨</span>
+            <input type="text" class="cyber-input" id="usernameInput"
+              placeholder="your_username" autocomplete="username"/>
+          </div>
+        </div>
+
+        <!-- Password -->
+        <div class="input-group">
+          <label class="input-label">PASSWORD</label>
+          <div class="input-wrap">
+            <span class="input-icon">🔒</span>
+            <input type="password" class="cyber-input" id="passwordInput"
+              placeholder="••••••••" autocomplete="off"/>
+          </div>
+        </div>
+
+        <!-- Error -->
+        <div class="error-msg" id="errorMsg"></div>
+
+        <!-- Submit -->
+        <button class="login-btn" id="loginBtn" onclick="handleLogin()">
+          <div class="btn-spinner"></div>
+          <span class="btn-text">[ AUTHENTICATE ]</span>
+        </button>
+
+      </div>
+
+      <!-- Footer -->
+      <div class="box-footer" style="flex-direction:column;gap:6px;">
+        <span>&gt; UNAUTHORIZED ACCESS IS PROHIBITED</span>
+        <span>No account? <a href="signup.html" style="color:var(--green);font-family:var(--font-hud);font-size:0.6rem;font-weight:700;letter-spacing:0.12em;text-decoration:none;" onmouseover="this.style.textShadow='0 0 8px var(--green)'" onmouseout="this.style.textShadow='none'">▶ SIGN UP</a></span>
+      </div>
+
+    </div>
+  </div>
+
+</div>
+
+<script>
+/* ════════════════════════════════════════════════
+   CONFIG
+════════════════════════════════════════════════ */
+const API_BASE = '/api';
+let currentRole = 'student';
+
+/* ════════════════════════════════════════════════
+   MATRIX RAIN
+════════════════════════════════════════════════ */
+const canvas = document.getElementById('matrixCanvas');
+const ctx    = canvas.getContext('2d');
+const CHARS  = '01アイウエオABCDEFGHIJKLMNOP<>{}[]#@$%&';
+let drops    = [];
+const fs     = 13;
+
+function resizeCanvas() {
+  canvas.width  = window.innerWidth;
+  canvas.height = window.innerHeight;
+  drops = Array.from({length: Math.floor(canvas.width/fs)}, ()=>Math.random()*-80);
+}
+function drawMatrix() {
+  ctx.fillStyle = 'rgba(2,12,2,0.055)';
+  ctx.fillRect(0,0,canvas.width,canvas.height);
+  drops.forEach((y,i) => {
+    const ch = CHARS[Math.floor(Math.random()*CHARS.length)];
+    ctx.fillStyle = '#00ff41'; ctx.shadowColor='#00ff41'; ctx.shadowBlur=6;
+    ctx.font = `${fs}px 'Share Tech Mono',monospace`;
+    ctx.fillText(ch, i*fs, y*fs);
+    ctx.shadowBlur = 0;
+    if(y*fs > canvas.height && Math.random()>0.975) drops[i] = 0;
+    drops[i] += 0.45;
+  });
+}
+resizeCanvas();
+window.addEventListener('resize', resizeCanvas);
+setInterval(drawMatrix, 48);
+
+/* ════════════════════════════════════════════════
+   FLOATING CODE DECORATION
+════════════════════════════════════════════════ */
+const codeSnippets = [
+  'SELECT * FROM students;',
+  'int *ptr = &x;',
+  'System.out.println("escape");',
+  'def solve(n): return n*2',
+  'cout << "cracked" << endl;',
+  'O(n log n)',
+  'if(lives > 0) continue;',
+  'JOIN ON student.id',
+  'class Node { int data; }',
+  'for i in range(10):',
+  'printf("%d", ans);',
+  'while(!escaped) { think(); }',
+];
+
+function buildCodeDeco() {
+  const deco = document.getElementById('codeDeco');
+  codeSnippets.forEach((snippet, i) => {
+    const el = document.createElement('div');
+    el.className  = 'code-line';
+    el.textContent = snippet;
+    el.style.left  = `${Math.random() * 90}%`;
+    el.style.animationDuration  = `${18 + Math.random() * 14}s`;
+    el.style.animationDelay    = `${-Math.random() * 20}s`;
+    el.style.fontSize = `${0.55 + Math.random() * 0.2}rem`;
+    deco.appendChild(el);
+  });
+}
+buildCodeDeco();
+
+/* ════════════════════════════════════════════════
+   ROLE TOGGLE
+════════════════════════════════════════════════ */
+function setRole(role) {
+  currentRole = role;
+  document.getElementById('playerBtn').classList.toggle('active',    role === 'student');
+  document.getElementById('moderatorBtn').classList.toggle('active', role === 'admin');
+  document.getElementById('rolePrompt').textContent = role === 'admin' ? 'MODERATOR' : 'PLAYER';
+  clearError();
+}
+
+/* ════════════════════════════════════════════════
+   ERROR HANDLING
+════════════════════════════════════════════════ */
+function showError(msg) {
+  const el = document.getElementById('errorMsg');
+  el.innerHTML = `⚠ ${msg}`;
+  document.getElementById('usernameInput').classList.add('error');
+  document.getElementById('passwordInput').classList.add('error');
+}
+
+function clearError() {
+  document.getElementById('errorMsg').innerHTML = '';
+  document.getElementById('usernameInput').classList.remove('error');
+  document.getElementById('passwordInput').classList.remove('error');
+}
+
+/* ════════════════════════════════════════════════
+   LOGIN HANDLER
+════════════════════════════════════════════════ */
+async function handleLogin() {
+  clearError();
+
+  const username = document.getElementById('usernameInput').value.trim();
+  const password = document.getElementById('passwordInput').value;
+  const btn      = document.getElementById('loginBtn');
+
+  if (!username || !password) {
+    showError('Username and password are required');
+    return;
+  }
+
+  btn.classList.add('loading');
+  btn.disabled = true;
+
+  try {
+    const res = await fetch(`${API_BASE}/auth/login`, {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ username, password })
+    });
+
+    const data = await res.json();
+
+    if (!res.ok) {
+      showError(data.error || 'Login failed. Try again.');
+      btn.classList.remove('loading');
+      btn.disabled = false;
+      return;
+    }
+
+    // Verify role matches selected tab
+    if (data.user.role !== currentRole) {
+      const tabName = currentRole === 'admin' ? 'MODERATOR' : 'PLAYER';
+      showError(`This account is not a ${tabName} account.`);
+      btn.classList.remove('loading');
+      btn.disabled = false;
+      return;
+    }
+
+    // Save tokens
+    localStorage.setItem('cer_token',   data.access_token);
+    localStorage.setItem('cer_refresh', data.refresh_token);
+    localStorage.setItem('cer_user',    JSON.stringify(data.user));
+
+    // Success flash
+    const overlay = document.getElementById('successOverlay');
+    const msg     = document.getElementById('successMsg');
+    msg.textContent = data.user.role === 'admin' ? 'MODERATOR ACCESS GRANTED' : 'ACCESS GRANTED';
+    overlay.classList.add('show');
+
+    setTimeout(() => {
+      if (data.user.role === 'admin') {
+        window.location.href = 'admin.html';
+      } else {
+        window.location.href = 'index.html';
+      }
+    }, 1200);
+
+  } catch (err) {
+    showError('Cannot connect to server. Is Flask running?');
+    btn.classList.remove('loading');
+    btn.disabled = false;
+  }
+}
+
+/* ════════════════════════════════════════════════
+   ENTER KEY SUPPORT
+════════════════════════════════════════════════ */
+document.addEventListener('keydown', e => {
+  if (e.key === 'Enter') handleLogin();
+});
+
+/* ════════════════════════════════════════════════
+   AUTO REDIRECT IF ALREADY LOGGED IN
+════════════════════════════════════════════════ */
+window.addEventListener('DOMContentLoaded', () => {
+  const token = localStorage.getItem('cer_token');
+  const user  = JSON.parse(localStorage.getItem('cer_user') || 'null');
+  if (token && user) {
+    if (user.role === 'admin') window.location.href = 'admin.html';
+    else window.location.href = 'index.html';
+  }
+});
+</script>
+</body>
+</html>

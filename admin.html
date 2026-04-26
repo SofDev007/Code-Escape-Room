@@ -1,0 +1,2269 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CODE ESCAPE ROOM — ADMIN PANEL</title>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&family=VT323&display=swap"
+    rel="stylesheet" />
+  <style>
+    :root {
+      --green: #00ff41;
+      --green-dim: #00c832;
+      --green-dark: #003d10;
+      --green-glow: rgba(0, 255, 65, 0.2);
+      --red: #ff2233;
+      --amber: #ffb700;
+      --cyan: #00f5ff;
+      --purple: #aa00ff;
+      --bg: #020c02;
+      --sidebar-bg: rgba(0, 12, 3, 0.97);
+      --panel-bg: rgba(0, 18, 5, 0.88);
+      --border: rgba(0, 255, 65, 0.12);
+      --font-mono: 'Share Tech Mono', monospace;
+      --font-hud: 'Orbitron', sans-serif;
+      --font-retro: 'VT323', monospace;
+    }
+
+    *,
+    *::before,
+    *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    html,
+    body {
+      width: 100%;
+      height: 100%;
+      background: var(--bg);
+      color: var(--green);
+      font-family: var(--font-mono);
+      overflow: hidden;
+    }
+
+    /* ── MATRIX BG ── */
+    #adminCanvas {
+      position: fixed;
+      inset: 0;
+      z-index: 0;
+      opacity: 0.07;
+    }
+
+    .scanlines {
+      position: fixed;
+      inset: 0;
+      z-index: 1;
+      pointer-events: none;
+      background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0, 0, 0, 0.06) 2px, rgba(0, 0, 0, 0.06) 4px);
+    }
+
+    /* ════════════════════════════════
+       APP SHELL
+    ════════════════════════════════ */
+    .app-shell {
+      position: relative;
+      z-index: 10;
+      display: grid;
+      grid-template-columns: 220px 1fr;
+      grid-template-rows: 52px 1fr;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    /* ════════════════════════════════
+       TOP NAV BAR
+    ════════════════════════════════ */
+    .topbar {
+      grid-column: 1 / -1;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 20px;
+      background: rgba(0, 10, 2, 0.95);
+      border-bottom: 1px solid var(--border);
+      backdrop-filter: blur(8px);
+    }
+
+    .topbar-left {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .topbar-logo {
+      font-family: var(--font-hud);
+      font-size: 0.78rem;
+      font-weight: 900;
+      letter-spacing: 0.15em;
+      color: var(--green);
+      text-shadow: 0 0 10px var(--green);
+    }
+
+    .topbar-sep {
+      color: var(--border);
+      font-size: 1.2rem;
+    }
+
+    .topbar-page {
+      font-size: 0.62rem;
+      color: var(--green-dim);
+      letter-spacing: 0.15em;
+    }
+
+    .topbar-right {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .admin-badge {
+      font-family: var(--font-hud);
+      font-size: 0.6rem;
+      padding: 4px 10px;
+      border: 1px solid var(--amber);
+      border-radius: 2px;
+      color: var(--amber);
+      letter-spacing: 0.1em;
+    }
+
+    .admin-name {
+      font-size: 0.7rem;
+      color: var(--green-dim);
+    }
+
+    .logout-btn {
+      font-family: var(--font-hud);
+      font-size: 0.58rem;
+      padding: 5px 10px;
+      border: 1px solid rgba(255, 34, 51, 0.4);
+      background: transparent;
+      color: var(--red);
+      border-radius: 2px;
+      cursor: pointer;
+      letter-spacing: 0.08em;
+      transition: all 0.2s;
+    }
+
+    .logout-btn:hover {
+      background: rgba(255, 34, 51, 0.1);
+    }
+
+    /* ════════════════════════════════
+       SIDEBAR
+    ════════════════════════════════ */
+    .sidebar {
+      background: var(--sidebar-bg);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .sidebar-section-label {
+      font-size: 0.55rem;
+      color: rgba(0, 255, 65, 0.25);
+      letter-spacing: 0.18em;
+      padding: 16px 16px 6px;
+    }
+
+    .nav-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 16px;
+      cursor: pointer;
+      font-size: 0.7rem;
+      color: rgba(0, 255, 65, 0.45);
+      letter-spacing: 0.08em;
+      border-left: 2px solid transparent;
+      transition: all 0.18s;
+      position: relative;
+    }
+
+    .nav-item:hover {
+      color: var(--green);
+      background: rgba(0, 255, 65, 0.04);
+    }
+
+    .nav-item.active {
+      color: var(--green);
+      border-left-color: var(--green);
+      background: rgba(0, 255, 65, 0.07);
+      text-shadow: 0 0 8px rgba(0, 255, 65, 0.4);
+    }
+
+    .nav-icon {
+      font-size: 1rem;
+      min-width: 20px;
+      text-align: center;
+    }
+
+    .nav-badge {
+      margin-left: auto;
+      background: var(--green);
+      color: #000;
+      font-family: var(--font-hud);
+      font-size: 0.55rem;
+      font-weight: 700;
+      padding: 1px 6px;
+      border-radius: 2px;
+      min-width: 20px;
+      text-align: center;
+    }
+
+    .sidebar-divider {
+      border: none;
+      border-top: 1px solid var(--border);
+      margin: 8px 16px;
+    }
+
+    .sidebar-footer {
+      margin-top: auto;
+      padding: 12px 16px;
+      font-size: 0.58rem;
+      color: rgba(0, 255, 65, 0.2);
+      letter-spacing: 0.08em;
+      border-top: 1px solid var(--border);
+    }
+
+    /* ════════════════════════════════
+       MAIN CONTENT
+    ════════════════════════════════ */
+    .main-content {
+      overflow-y: auto;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    /* ── SECTIONS (tabs) ── */
+    .section {
+      display: none;
+      flex-direction: column;
+      gap: 18px;
+      animation: fadeIn 0.3s ease;
+    }
+
+    .section.active {
+      display: flex;
+    }
+
+    @keyframes fadeIn {
+      from {
+        opacity: 0;
+        transform: translateY(8px);
+      }
+
+      to {
+        opacity: 1;
+        transform: none;
+      }
+    }
+
+    /* ── PAGE HEADER ── */
+    .page-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+
+    .page-title {
+      font-family: var(--font-hud);
+      font-size: clamp(0.9rem, 1.8vw, 1.2rem);
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      color: var(--green);
+      text-shadow: 0 0 12px rgba(0, 255, 65, 0.3);
+    }
+
+    .page-sub {
+      font-size: 0.65rem;
+      color: rgba(0, 255, 65, 0.4);
+      margin-top: 4px;
+      letter-spacing: 0.08em;
+    }
+
+    /* ── STAT CARDS ── */
+    .stats-row {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 14px;
+    }
+
+    .stat-card {
+      background: var(--panel-bg);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 16px;
+      position: relative;
+      overflow: hidden;
+      transition: all 0.2s;
+    }
+
+    .stat-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 2px;
+      background: linear-gradient(90deg, transparent, var(--accent, var(--green)), transparent);
+    }
+
+    .stat-card:hover {
+      border-color: rgba(0, 255, 65, 0.25);
+      box-shadow: 0 0 20px rgba(0, 255, 65, 0.07);
+    }
+
+    .stat-icon {
+      font-size: 1.4rem;
+      margin-bottom: 8px;
+      display: block;
+    }
+
+    .stat-val {
+      font-family: var(--font-retro);
+      font-size: 2.2rem;
+      color: var(--green);
+      text-shadow: 0 0 10px var(--green);
+      line-height: 1;
+      display: block;
+    }
+
+    .stat-label {
+      font-size: 0.6rem;
+      color: rgba(0, 255, 65, 0.45);
+      letter-spacing: 0.12em;
+      margin-top: 6px;
+    }
+
+    /* ── PANEL BOX ── */
+    .panel {
+      background: var(--panel-bg);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      overflow: hidden;
+      position: relative;
+    }
+
+    .panel::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, var(--green), transparent);
+      opacity: 0.3;
+    }
+
+    .panel-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 18px;
+      border-bottom: 1px solid var(--border);
+      background: rgba(0, 255, 65, 0.03);
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .panel-title {
+      font-size: 0.65rem;
+      color: var(--green-dim);
+      letter-spacing: 0.12em;
+    }
+
+    .panel-body {
+      padding: 18px;
+    }
+
+    /* ── ACTION BUTTONS ── */
+    .btn {
+      padding: 8px 16px;
+      border-radius: 3px;
+      font-family: var(--font-hud);
+      font-size: 0.62rem;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      cursor: pointer;
+      transition: all 0.2s;
+      border: 1px solid;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .btn-green {
+      border-color: var(--green);
+      background: rgba(0, 255, 65, 0.1);
+      color: var(--green);
+      text-shadow: 0 0 6px var(--green);
+    }
+
+    .btn-green:hover {
+      background: rgba(0, 255, 65, 0.18);
+      box-shadow: 0 0 14px rgba(0, 255, 65, 0.2);
+    }
+
+    .btn-red {
+      border-color: var(--red);
+      background: rgba(255, 34, 51, 0.08);
+      color: var(--red);
+    }
+
+    .btn-red:hover {
+      background: rgba(255, 34, 51, 0.16);
+    }
+
+    .btn-amber {
+      border-color: var(--amber);
+      background: rgba(255, 183, 0, 0.08);
+      color: var(--amber);
+    }
+
+    .btn-amber:hover {
+      background: rgba(255, 183, 0, 0.16);
+    }
+
+    .btn-sm {
+      padding: 5px 10px;
+      font-size: 0.58rem;
+    }
+
+    /* ── SEARCH BAR ── */
+    .search-wrap {
+      position: relative;
+    }
+
+    .search-input {
+      background: rgba(0, 0, 0, 0.4);
+      border: 1px solid var(--border);
+      border-radius: 3px;
+      color: var(--green);
+      font-family: var(--font-mono);
+      font-size: 0.78rem;
+      padding: 8px 12px 8px 32px;
+      outline: none;
+      transition: all 0.2s;
+      min-width: 200px;
+    }
+
+    .search-input:focus {
+      border-color: var(--green-dim);
+    }
+
+    .search-input::placeholder {
+      color: rgba(0, 255, 65, 0.2);
+    }
+
+    .search-icon {
+      position: absolute;
+      left: 10px;
+      top: 50%;
+      transform: translateY(-50%);
+      font-size: 0.8rem;
+      opacity: 0.4;
+    }
+
+    /* ── DATA TABLE ── */
+    .data-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.75rem;
+    }
+
+    .data-table th {
+      text-align: left;
+      padding: 10px 14px;
+      font-family: var(--font-hud);
+      font-size: 0.58rem;
+      color: rgba(0, 255, 65, 0.4);
+      letter-spacing: 0.12em;
+      border-bottom: 1px solid var(--border);
+      white-space: nowrap;
+    }
+
+    .data-table td {
+      padding: 11px 14px;
+      border-bottom: 1px solid rgba(0, 255, 65, 0.05);
+      color: #a8ffc0;
+      vertical-align: middle;
+    }
+
+    .data-table tr:hover td {
+      background: rgba(0, 255, 65, 0.03);
+    }
+
+    .data-table tr:last-child td {
+      border-bottom: none;
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 2px;
+      font-family: var(--font-hud);
+      font-size: 0.55rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+    }
+
+    .badge-green {
+      background: rgba(0, 255, 65, 0.15);
+      color: var(--green);
+      border: 1px solid rgba(0, 255, 65, 0.3);
+    }
+
+    .badge-red {
+      background: rgba(255, 34, 51, 0.15);
+      color: var(--red);
+      border: 1px solid rgba(255, 34, 51, 0.3);
+    }
+
+    .badge-amber {
+      background: rgba(255, 183, 0, 0.15);
+      color: var(--amber);
+      border: 1px solid rgba(255, 183, 0, 0.3);
+    }
+
+    .badge-cyan {
+      background: rgba(0, 245, 255, 0.1);
+      color: var(--cyan);
+      border: 1px solid rgba(0, 245, 255, 0.25);
+    }
+
+    /* Room chips */
+    .room-chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+    }
+
+    .room-chip {
+      padding: 2px 7px;
+      border-radius: 2px;
+      font-size: 0.58rem;
+      font-family: var(--font-hud);
+      letter-spacing: 0.06em;
+      border: 1px solid;
+      cursor: default;
+    }
+
+    /* ── FORM ELEMENTS ── */
+    .form-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+    }
+
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .form-group.full {
+      grid-column: 1 / -1;
+    }
+
+    .form-label {
+      font-size: 0.62rem;
+      color: var(--green-dim);
+      letter-spacing: 0.1em;
+    }
+
+    .form-input,
+    .form-select {
+      background: rgba(0, 0, 0, 0.4);
+      border: 1px solid rgba(0, 255, 65, 0.2);
+      border-radius: 3px;
+      color: var(--green);
+      font-family: var(--font-mono);
+      font-size: 0.82rem;
+      padding: 9px 12px;
+      outline: none;
+      transition: all 0.2s;
+      width: 100%;
+    }
+
+    .form-input:focus,
+    .form-select:focus {
+      border-color: var(--green);
+      box-shadow: 0 0 10px rgba(0, 255, 65, 0.15);
+    }
+
+    .form-input::placeholder {
+      color: rgba(0, 255, 65, 0.2);
+    }
+
+    .form-select option {
+      background: #020c02;
+      color: var(--green);
+    }
+
+    /* Room checkboxes */
+    .room-checks {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+      gap: 8px;
+    }
+
+    .room-check-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 10px;
+      border: 1px solid rgba(0, 255, 65, 0.12);
+      border-radius: 3px;
+      cursor: pointer;
+      transition: all 0.18s;
+      font-size: 0.7rem;
+    }
+
+    .room-check-item:hover {
+      border-color: rgba(0, 255, 65, 0.3);
+      background: rgba(0, 255, 65, 0.04);
+    }
+
+    .room-check-item input {
+      display: none;
+    }
+
+    .room-check-item.checked {
+      border-color: var(--green);
+      background: rgba(0, 255, 65, 0.08);
+      color: var(--green);
+    }
+
+    .check-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      border: 1px solid rgba(0, 255, 65, 0.4);
+      flex-shrink: 0;
+      transition: all 0.2s;
+    }
+
+    .room-check-item.checked .check-dot {
+      background: var(--green);
+      border-color: var(--green);
+      box-shadow: 0 0 6px var(--green);
+    }
+
+    /* ── MODAL ── */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 200;
+      background: rgba(2, 12, 2, 0.88);
+      backdrop-filter: blur(6px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.3s;
+    }
+
+    .modal-overlay.show {
+      opacity: 1;
+      pointer-events: all;
+    }
+
+    .modal-box {
+      background: rgba(0, 15, 5, 0.98);
+      border: 1px solid rgba(0, 255, 65, 0.25);
+      border-radius: 6px;
+      width: min(560px, 92vw);
+      max-height: 88vh;
+      overflow-y: auto;
+      position: relative;
+      box-shadow: 0 0 60px rgba(0, 255, 65, 0.1);
+      animation: modalIn 0.3s ease;
+    }
+
+    @keyframes modalIn {
+      from {
+        transform: scale(0.95) translateY(12px);
+        opacity: 0;
+      }
+
+      to {
+        transform: none;
+        opacity: 1;
+      }
+    }
+
+    .modal-box::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 2px;
+      background: linear-gradient(90deg, transparent, var(--green), transparent);
+    }
+
+    .modal-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .modal-title {
+      font-family: var(--font-hud);
+      font-size: 0.78rem;
+      letter-spacing: 0.12em;
+      color: var(--green);
+    }
+
+    .modal-close {
+      background: transparent;
+      border: none;
+      color: rgba(0, 255, 65, 0.4);
+      font-size: 1.2rem;
+      cursor: pointer;
+      transition: color 0.2s;
+      padding: 0 4px;
+    }
+
+    .modal-close:hover {
+      color: var(--red);
+    }
+
+    .modal-body {
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .modal-footer {
+      padding: 14px 20px;
+      border-top: 1px solid var(--border);
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+    }
+
+    /* ── TOAST ── */
+    .toast {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      z-index: 300;
+      padding: 12px 20px;
+      border-radius: 4px;
+      font-size: 0.75rem;
+      letter-spacing: 0.06em;
+      transform: translateY(80px);
+      opacity: 0;
+      transition: all 0.3s ease;
+      border: 1px solid;
+      max-width: 320px;
+    }
+
+    .toast.show {
+      transform: translateY(0);
+      opacity: 1;
+    }
+
+    .toast.success {
+      background: rgba(0, 20, 5, 0.96);
+      border-color: var(--green);
+      color: var(--green);
+    }
+
+    .toast.error {
+      background: rgba(20, 0, 3, 0.96);
+      border-color: var(--red);
+      color: var(--red);
+    }
+
+    .toast.info {
+      background: rgba(0, 10, 15, 0.96);
+      border-color: var(--amber);
+      color: var(--amber);
+    }
+
+    /* ── LEADERBOARD TABLE ── */
+    .lb-rank {
+      font-family: var(--font-hud);
+      font-size: 0.8rem;
+      color: var(--amber);
+    }
+
+    /* ── EMPTY STATE ── */
+    .empty-state {
+      text-align: center;
+      padding: 40px 20px;
+      color: rgba(0, 255, 65, 0.25);
+      font-size: 0.78rem;
+      letter-spacing: 0.08em;
+      line-height: 2;
+    }
+
+    .empty-icon {
+      font-size: 2.5rem;
+      display: block;
+      margin-bottom: 10px;
+      opacity: 0.4;
+    }
+
+    /* ── SCROLLBAR ── */
+    ::-webkit-scrollbar {
+      width: 5px;
+      height: 5px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: var(--bg);
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: var(--green-dark);
+      border-radius: 3px;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+      background: var(--green-dim);
+    }
+
+    /* ── TOP STUDENTS LIST ── */
+    .top-student-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 0;
+      border-bottom: 1px solid rgba(0, 255, 65, 0.05);
+    }
+
+    .top-student-row:last-child {
+      border-bottom: none;
+    }
+
+    .ts-rank {
+      font-family: var(--font-retro);
+      font-size: 1.4rem;
+      min-width: 28px;
+      color: var(--amber);
+    }
+
+    .ts-name {
+      flex: 1;
+      font-size: 0.78rem;
+    }
+
+    .ts-batch {
+      font-size: 0.62rem;
+      color: rgba(0, 255, 65, 0.4);
+    }
+
+    .ts-score {
+      font-family: var(--font-hud);
+      font-size: 0.78rem;
+      color: var(--green);
+      text-shadow: 0 0 6px var(--green);
+    }
+  </style>
+</head>
+
+<body>
+
+  <canvas id="adminCanvas"></canvas>
+  <div class="scanlines"></div>
+
+  <!-- Toast notification -->
+  <div class="toast" id="toast"></div>
+
+  <!-- ════ MODALS ════ -->
+
+  <!-- Add Student Modal -->
+  <div class="modal-overlay" id="addStudentModal">
+    <div class="modal-box">
+      <div class="modal-head">
+        <div class="modal-title">// ADD NEW PLAYER</div>
+        <button class="modal-close" onclick="closeModal('addStudentModal')">&#x2715;</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-grid">
+          <div class="form-group">
+            <label class="form-label">FULL NAME *</label>
+            <input class="form-input" id="sName" placeholder="e.g. Arnav Jaiswal" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">USERNAME *</label>
+            <input class="form-input" id="sUsername" placeholder="e.g. arnav_7" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">ROLL NUMBER</label>
+            <input class="form-input" id="sRoll" placeholder="e.g. EN23IT301024" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">EMAIL ADDRESS *</label>
+            <input class="form-input" type="email" id="sEmail" placeholder="student@college.com" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">BATCH</label>
+            <input class="form-input" id="sBatch" placeholder="e.g. IT-3A" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">PASSWORD *</label>
+            <input class="form-input" type="password" id="sPassword" placeholder="Min. 6 characters" />
+          </div>
+          <div class="form-group full">
+            <label class="form-label">ASSIGN ROOMS</label>
+            <div class="room-checks" id="addRoomChecks">
+              <!-- Populated by JS -->
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-red btn-sm" onclick="closeModal('addStudentModal')">CANCEL</button>
+        <button class="btn btn-green btn-sm" onclick="createStudent()">&#x2713; CREATE PLAYER</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Add Room Modal -->
+  <div class="modal-overlay" id="addRoomModal">
+    <div class="modal-box">
+      <div class="modal-head">
+        <div class="modal-title">// ADD NEW ROOM</div>
+        <button class="modal-close" onclick="closeModal('addRoomModal')">&#x2715;</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-grid">
+          <div class="form-group">
+            <label class="form-label">ROOM NAME *</label>
+            <input class="form-input" id="rName" placeholder="e.g. THE PYTHON REALM" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">LANGUAGE *</label>
+            <input class="form-input" id="rLanguage" placeholder="e.g. Python" />
+          </div>
+          <div class="form-group full">
+            <label class="form-label">DESCRIPTION</label>
+            <input class="form-input" id="rDesc" placeholder="Short description for players" />
+          </div>
+          <div class="form-group full">
+            <label class="form-label">ROOM LORE (story text)</label>
+            <textarea class="form-input" id="rLore" rows="3" placeholder="Set the atmosphere..."></textarea>
+          </div>
+          <div class="form-group">
+            <label class="form-label">TIME LIMIT (seconds)</label>
+            <input class="form-input" type="number" id="rTime" value="180" min="60" max="600" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">COLOR (hex)</label>
+            <input class="form-input" id="rColor" placeholder="#00ff41" />
+          </div>
+          <div class="form-group full" style="display:flex;align-items:center;gap:10px;padding:8px;background:rgba(0,255,65,0.04);border:1px solid rgba(0,255,65,0.1);border-radius:4px;">
+            <input type="checkbox" id="rPublic" style="width:16px;height:16px;cursor:pointer;">
+            <label for="rPublic" style="font-size:0.68rem;color:var(--green);cursor:pointer;font-weight:bold;letter-spacing:0.05em;">PUBLIC ROOM (Visible to all students automatically)</label>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-red btn-sm" onclick="closeModal('addRoomModal')">CANCEL</button>
+        <button class="btn btn-green btn-sm" onclick="createRoom()">&#x2713; CREATE ROOM</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Assign Rooms Modal -->
+  <div class="modal-overlay" id="assignRoomsModal">
+    <div class="modal-box">
+      <div class="modal-head">
+        <div class="modal-title">// ASSIGN ROOMS — <span id="assignStudentName">STUDENT</span></div>
+        <button class="modal-close" onclick="closeModal('assignRoomsModal')">✕</button>
+      </div>
+      <div class="modal-body">
+        <p style="font-size:0.72rem;color:rgba(0,255,65,0.5);margin-bottom:4px;">
+          Select which rooms this student can access:
+        </p>
+        <div class="room-checks" id="assignRoomChecks"></div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-red btn-sm" onclick="closeModal('assignRoomsModal')">CANCEL</button>
+        <button class="btn btn-green btn-sm" onclick="saveRoomAssignment()">✓ SAVE ACCESS</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Batch Assign Modal -->
+  <div class="modal-overlay" id="batchModal">
+    <div class="modal-box">
+      <div class="modal-head">
+        <div class="modal-title">// BATCH ROOM ASSIGNMENT</div>
+        <button class="modal-close" onclick="closeModal('batchModal')">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label class="form-label">SELECT BATCH</label>
+          <select class="form-select" id="batchSelect">
+            <option value="">-- Select Batch --</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">SELECT ROOMS TO ASSIGN</label>
+          <div class="room-checks" id="batchRoomChecks"></div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-red btn-sm" onclick="closeModal('batchModal')">CANCEL</button>
+        <button class="btn btn-amber btn-sm" onclick="saveBatchAssignment()">⚡ ASSIGN TO BATCH</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════ APP SHELL ════ -->
+  <div class="app-shell">
+
+    <!-- TOP NAV -->
+    <div class="topbar">
+      <div class="topbar-left">
+        <div class="topbar-logo">CODE ESCAPE ROOM</div>
+        <span class="topbar-sep">//</span>
+        <div class="topbar-page">ADMIN CONTROL PANEL</div>
+      </div>
+      <div class="topbar-right">
+        <div class="admin-badge">🛡️ ADMIN</div>
+        <div class="admin-name" id="adminNameDisplay">—</div>
+        <button class="logout-btn" onclick="logout()">⏻ LOGOUT</button>
+      </div>
+    </div>
+
+    <!-- SIDEBAR -->
+    <div class="sidebar">
+      <div class="sidebar-section-label">NAVIGATION</div>
+
+      <div class="nav-item active" onclick="showSection('dashboard')">
+        <span class="nav-icon">📊</span> DASHBOARD
+      </div>
+      <div class="nav-item" onclick="showSection('students')">
+        <span class="nav-icon">👥</span> PLAYERS
+        <span class="nav-badge" id="studentCountBadge">0</span>
+      </div>
+      <div class="nav-item" onclick="showSection('rooms')">
+        <span class="nav-icon">🏚️</span> ROOMS
+      </div>
+      <div class="nav-item" onclick="showSection('access')">
+        <span class="nav-icon">🔑</span> ACCESS CONTROL
+      </div>
+      <div class="nav-item" onclick="showSection('leaderboard')">
+        <span class="nav-icon">🏆</span> LEADERBOARD
+      </div>
+      <div class="nav-item" onclick="showSection('issues')">
+        <span class="nav-icon">🎫</span> ISSUES
+        <span class="nav-badge" id="issueCountBadge" style="background:var(--amber);color:#000">0</span>
+      </div>
+
+      <hr class="sidebar-divider" />
+
+      <div class="sidebar-section-label">ACTIONS</div>
+      <div class="nav-item" onclick="openModal('addStudentModal')">
+        <span class="nav-icon">➕</span> ADD PLAYER
+      </div>
+      <div class="nav-item" onclick="openModal('addRoomModal')">
+        <span class="nav-icon">🏗️</span> ADD ROOM
+      </div>
+      <div class="nav-item" onclick="showSection('aiquestions')">
+        <span class="nav-icon">🤖</span> AI QUESTIONS
+      </div>
+      <div class="nav-item" onclick="openBatchModal()">
+        <span class="nav-icon">⚡</span> BATCH ASSIGN
+      </div>
+
+      <div class="sidebar-footer">
+        SYS_VER: 2.0.0<br>
+        ARNAV • DEVANSH • AVIRAL
+      </div>
+    </div>
+
+    <!-- MAIN CONTENT -->
+    <div class="main-content">
+
+      <!-- ══ DASHBOARD ══ -->
+      <div class="section active" id="section-dashboard">
+        <div class="page-header">
+          <div>
+            <div class="page-title">SYSTEM DASHBOARD</div>
+            <div class="page-sub">// Real-time overview of all activity</div>
+          </div>
+        </div>
+
+        <div class="stats-row">
+          <div class="stat-card" style="--accent: var(--cyan)">
+            <span class="stat-icon">👥</span>
+            <span class="stat-val" id="statStudents">0</span>
+            <span class="stat-label">TOTAL PLAYERS</span>
+          </div>
+          <div class="stat-card" style="--accent: var(--amber)">
+            <span class="stat-icon">🎮</span>
+            <span class="stat-val" id="statSessions">0</span>
+            <span class="stat-label">QUIZ SESSIONS</span>
+          </div>
+          <div class="stat-card" style="--accent: var(--green)">
+            <span class="stat-icon">✅</span>
+            <span class="stat-val" id="statCompleted">0</span>
+            <span class="stat-label">COMPLETED GAMES</span>
+          </div>
+          <div class="stat-card" style="--accent: var(--red)">
+            <span class="stat-icon">🏚️</span>
+            <span class="stat-val" id="statRooms">0</span>
+            <span class="stat-label">ACTIVE ROOMS</span>
+          </div>
+          <div class="stat-card" style="--accent: var(--purple)">
+            <span class="stat-icon">📝</span>
+            <span class="stat-val" id="statAttempts">0</span>
+            <span class="stat-label">ROOM ATTEMPTS</span>
+          </div>
+          <div class="stat-card" style="--accent: var(--red)">
+            <span class="stat-icon">🚫</span>
+            <span class="stat-val" id="statBanned">0</span>
+            <span class="stat-label">BANNED PLAYERS</span>
+          </div>
+        </div>
+
+        <!-- Top students -->
+        <div class="panel">
+          <div class="panel-head">
+            <div class="panel-title">// TOP_PERFORMERS.db</div>
+          </div>
+          <div class="panel-body">
+            <div id="topStudentsList">
+              <div class="empty-state"><span class="empty-icon">🏆</span>No data yet</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ══ STUDENTS ══ -->
+      <div class="section" id="section-students">
+        <div class="page-header">
+          <div>
+            <div class="page-title">STUDENT MANAGEMENT</div>
+            <div class="page-sub">// Create, manage and monitor all students</div>
+          </div>
+          <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+            <div class="search-wrap">
+              <span class="search-icon">🔍</span>
+              <input class="search-input" id="studentSearch" placeholder="Search by name or batch..."
+                oninput="filterStudents()" />
+            </div>
+            <button class="btn btn-green btn-sm" onclick="openModal('addStudentModal')">➕ ADD STUDENT</button>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-head">
+            <div class="panel-title">// STUDENT_REGISTRY.db</div>
+            <div style="font-size:0.6rem;color:rgba(0,255,65,0.35)">
+              <span id="studentTableCount">0</span> ENTRIES
+            </div>
+          </div>
+          <div style="overflow-x:auto">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>NAME</th>
+                  <th>EMAIL</th>
+                  <th>ROLL NO.</th>
+                  <th>BATCH</th>
+                  <th>STATUS</th>
+                  <th>ROOMS</th>
+                  <th>ACTIONS</th>
+                </tr>
+              </thead>
+              <tbody id="studentTableBody">
+                <tr>
+                  <td colspan="8">
+                    <div class="empty-state"><span class="empty-icon">👥</span>No students yet</div>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ══ ROOMS ══ -->
+      <div class="section" id="section-rooms">
+        <div class="page-header">
+          <div>
+            <div class="page-title">ROOM REGISTRY</div>
+            <div class="page-sub">// All available quiz rooms in the system</div>
+          </div>
+        </div>
+
+        <div class="stats-row" id="roomCardsGrid">
+          <div class="empty-state"><span class="empty-icon">🏚️</span>Loading rooms...</div>
+        </div>
+      </div>
+
+      <!-- ══ ACCESS CONTROL ══ -->
+      <div class="section" id="section-access">
+        <div class="page-header">
+          <div>
+            <div class="page-title">ACCESS CONTROL</div>
+            <div class="page-sub">// Manage which students can access which rooms</div>
+          </div>
+          <button class="btn btn-amber btn-sm" onclick="openBatchModal()">⚡ BATCH ASSIGN</button>
+        </div>
+
+        <div class="panel">
+          <div class="panel-head">
+            <div class="panel-title">// ACCESS_MATRIX.sys</div>
+            <div class="search-wrap">
+              <span class="search-icon">🔍</span>
+              <input class="search-input" id="accessSearch" placeholder="Filter students..." oninput="filterAccess()"
+                style="min-width:160px" />
+            </div>
+          </div>
+          <div style="overflow-x:auto">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>STUDENT</th>
+                  <th>BATCH</th>
+                  <th>ASSIGNED ROOMS</th>
+                  <th>ACTIONS</th>
+                </tr>
+              </thead>
+              <tbody id="accessTableBody">
+                <tr>
+                  <td colspan="4">
+                    <div class="empty-state"><span class="empty-icon">🔑</span>No data</div>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ══ LEADERBOARD ══ -->
+      <div class="section" id="section-leaderboard">
+        <div class="page-header">
+          <div>
+            <div class="page-title">CLASS LEADERBOARD</div>
+            <div class="page-sub">// Top performers across all rooms</div>
+          </div>
+          <div style="display:flex;gap:10px;align-items:center">
+            <select class="form-select" id="lbRoomFilter" onchange="loadLeaderboard()"
+              style="min-width:160px;padding:7px 12px">
+              <option value="overall">OVERALL</option>
+            </select>
+            <select class="form-select" id="lbBatchFilter" onchange="loadLeaderboard()"
+              style="min-width:120px;padding:7px 12px">
+              <option value="">ALL BATCHES</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-head">
+            <div class="panel-title">// LEADERBOARD.db</div>
+          </div>
+          <div style="overflow-x:auto">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>RANK</th>
+                  <th>STUDENT</th>
+                  <th>BATCH</th>
+                  <th>SCORE</th>
+                  <th>ROOMS DONE</th>
+                  <th>TIME</th>
+                </tr>
+              </thead>
+              <tbody id="leaderboardBody">
+                <tr>
+                  <td colspan="6">
+                    <div class="empty-state"><span class="empty-icon">🏆</span>No scores yet</div>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ══ AI QUESTIONS ══ -->
+      <div class="section" id="section-aiquestions">
+        <div class="page-header">
+          <div>
+            <div class="page-title">🤖 AI QUESTION GENERATOR</div>
+            <div class="page-sub">// Powered by NVIDIA NIM · Mistral AI</div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-head">
+            <div class="panel-title">// GENERATE.exe — SELECT ROOM + COUNT</div>
+          </div>
+          <div class="panel-body">
+            <div class="form-grid">
+              <div class="form-group">
+                <label class="form-label">SELECT ROOM</label>
+                <select class="form-select" id="aiGenRoom">
+                  <option value="">-- Select a room --</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label class="form-label">QUANTITY (max 10)</label>
+                <input type="number" class="form-input" id="aiGenCount" value="5" min="1" max="10" />
+              </div>
+              <div class="form-group">
+                <label class="form-label">DIFFICULTY</label>
+                <select class="form-select" id="aiGenDiff">
+                  <option value="easy">EASY</option>
+                  <option value="medium" selected>MEDIUM</option>
+                  <option value="hard">HARD</option>
+                </select>
+              </div>
+              <div class="form-group full" style="margin-top:10px;">
+                <label class="form-label">SYLLABUS / FOCUS TOPICS (OPTIONAL)</label>
+                <textarea class="form-input" id="aiGenSyllabus" rows="5" placeholder="e.g. Dictionaries, OOP, Loops..." style="resize:vertical;"></textarea>
+              </div>
+              <div class="form-group full" style="margin-top:5px; margin-bottom:10px;">
+                <label style="display:flex;align-items:center;gap:10px;font-size:0.8rem;color:var(--green);cursor:pointer;">
+                  <input type="checkbox" id="aiGenImages" style="accent-color:var(--green);width:18px;height:18px;"> INCLUDE AI IMAGES (NVIDIA NIM)
+                </label>
+              </div>
+              <div class="form-group full">
+                <button class="btn btn-green" id="aiGenBtn" onclick="generateQuestions()"
+                  style="width:100%;justify-content:center">
+                  🤖 GENERATE QUESTIONS
+                </button>
+              </div>
+            </div>
+            <div id="aiGenStatus" style="margin-top:16px;font-size:0.75rem;line-height:1.7;"></div>
+            <div id="aiGenResults" style="margin-top:12px;"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ══ ISSUES ══ -->
+      <div class="section" id="section-issues">
+        <div class="page-header">
+          <div>
+            <div class="page-title">PLAYER ISSUES</div>
+            <div class="page-sub">// Reports submitted by players</div>
+          </div>
+          <button class="btn btn-green btn-sm" onclick="loadIssues()">&#8635; REFRESH</button>
+        </div>
+
+        <div class="panel">
+          <div class="panel-head">
+            <div class="panel-title">// ISSUE_TRACKER.db</div>
+            <div style="display:flex;gap:8px">
+              <button class="btn btn-sm" style="border-color:rgba(0,255,65,0.3);color:var(--green-dim)"
+                onclick="setIssueFilter(false)">OPEN</button>
+              <button class="btn btn-sm" style="border-color:rgba(0,255,65,0.3);color:var(--green-dim)"
+                onclick="setIssueFilter(true)">RESOLVED</button>
+            </div>
+          </div>
+          <div style="overflow-x:auto">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>PLAYER</th>
+                  <th>CATEGORY</th>
+                  <th>TITLE</th>
+                  <th>DESCRIPTION</th>
+                  <th>STATUS</th>
+                  <th>ACTIONS</th>
+                </tr>
+              </thead>
+              <tbody id="issuesTableBody">
+                <tr>
+                  <td colspan="7">
+                    <div class="empty-state"><span class="empty-icon">🎫</span>No issues yet</div>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /main-content -->
+  </div><!-- /app-shell -->
+
+  <!-- VIEW QUESTIONS MODAL -->
+  <!-- ADD QUESTION MODAL -->
+  <div class="modal-overlay" id="addQuestionModal">
+    <div class="modal-box" style="width: min(600px, 92vw);">
+      <div class="modal-head">
+        <div class="modal-title">// ADD MANUAL QUESTION</div>
+        <button class="modal-close" onclick="closeModal('addQuestionModal')">&#x2715;</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-grid">
+          <div class="form-group full">
+            <label class="form-label">QUESTION TEXT</label>
+            <textarea class="form-input" id="addQText" rows="2" placeholder="What is 2+2?"></textarea>
+          </div>
+          <div class="form-group full">
+            <label class="form-label">CODE SNIPPET (OPTIONAL)</label>
+            <textarea class="form-input" id="addQCode" rows="3" placeholder="def is_even(n):\n  return n % 2 == 0" style="font-family:var(--font-mono)"></textarea>
+          </div>
+          <div class="form-group full">
+            <label class="form-label">IMAGE URL (OPTIONAL)</label>
+            <input type="text" class="form-input" id="addQImage" placeholder="https://example.com/image.png">
+          </div>
+          <div class="form-group full">
+            <label class="form-label">OPTIONS (EXACTLY 4)</label>
+            <input type="text" class="form-input" id="addQOp0" placeholder="Option A" style="margin-bottom:5px">
+            <input type="text" class="form-input" id="addQOp1" placeholder="Option B" style="margin-bottom:5px">
+            <input type="text" class="form-input" id="addQOp2" placeholder="Option C" style="margin-bottom:5px">
+            <input type="text" class="form-input" id="addQOp3" placeholder="Option D">
+          </div>
+          <div class="form-group">
+            <label class="form-label">CORRECT OPTION</label>
+            <select class="form-select" id="addQCorrect">
+              <option value="0">A (First Option)</option>
+              <option value="1">B (Second Option)</option>
+              <option value="2">C (Third Option)</option>
+              <option value="3">D (Fourth Option)</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">DIFFICULTY</label>
+            <select class="form-select" id="addQDiff">
+              <option value="easy">EASY</option>
+              <option value="medium" selected>MEDIUM</option>
+              <option value="hard">HARD</option>
+            </select>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-red btn-sm" onclick="closeModal('addQuestionModal')">CANCEL</button>
+        <button class="btn btn-green btn-sm" id="addQSaveBtn" onclick="submitManualQuestion()">SAVE QUESTION</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- VIEW QUESTIONS MODAL -->
+  <div class="modal-overlay" id="viewQuestionsModal">
+    <div class="modal-box" style="width: min(800px, 92vw);">
+      <div class="modal-head">
+        <div class="modal-title" id="vqTitle">// ROOM QUESTIONS</div>
+        <button class="modal-close" onclick="closeModal('viewQuestionsModal')">&#x2715;</button>
+      </div>
+      <div class="modal-body" style="max-height: 60vh; overflow-y: auto;">
+        <div id="vqContent" style="margin-top:1rem;">
+          <span style="color:var(--cyan)">Loading questions...</span>
+        </div>
+      </div>
+      <div class="modal-footer" style="justify-content: space-between;">
+        <div style="display:flex;gap:10px;">
+          <button class="btn btn-red btn-sm" onclick="deleteAllQuestions()">🗑️ DELETE ALL</button>
+          <button class="btn btn-cyan btn-sm" style="border-color:var(--cyan);background:rgba(0, 245, 255, 0.1);color:var(--cyan)" onclick="openAddManualQuestion()">➕ ADD QUESTION</button>
+        </div>
+        <button class="btn btn-red btn-sm" onclick="closeModal('viewQuestionsModal')">CLOSE</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    /* ════════════════════════════════════════════════
+       CONFIG & STATE
+    ════════════════════════════════════════════════ */
+    const API = '/api';
+    let token = localStorage.getItem('cer_token') || '';
+    let allStudents = [];
+    let allRooms = [];
+    let assigningStudentId = null;
+    let currentViewRoomId = null;
+    let currentViewRoomName = null;
+
+    const ROOM_COLORS = {
+      'C': '#ff6b35', 'C++': '#ffb700', 'Java': '#00aaff',
+      'SQL': '#00ff41', 'DSA': '#ff00aa', 'DAA': '#aa00ff',
+      'Python': '#00f5ff'
+    };
+
+    /* ════════════════════════════════════════════════
+       MATRIX RAIN (subtle)
+    ════════════════════════════════════════════════ */
+    const gc = document.getElementById('adminCanvas');
+    const gctx = gc.getContext('2d');
+    let gdrops = [];
+    const gfs = 12;
+    function resizeGC() {
+      gc.width = window.innerWidth;
+      gc.height = window.innerHeight;
+      gdrops = Array.from({ length: Math.floor(gc.width / gfs) }, () => Math.random() * -60);
+    }
+    function drawGC() {
+      gctx.fillStyle = 'rgba(2,12,2,0.05)';
+      gctx.fillRect(0, 0, gc.width, gc.height);
+      gdrops.forEach((y, i) => {
+        const ch = '01'[Math.floor(Math.random() * 2)];
+        gctx.fillStyle = '#00ff41'; gctx.shadowBlur = 0;
+        gctx.font = `${gfs}px monospace`;
+        gctx.fillText(ch, i * gfs, y * gfs);
+        if (y * gfs > gc.height && Math.random() > 0.98) gdrops[i] = 0;
+        gdrops[i] += 0.3;
+      });
+    }
+    resizeGC();
+    window.addEventListener('resize', resizeGC);
+    setInterval(drawGC, 60);
+
+    /* ════════════════════════════════════════════════
+       AUTH CHECK
+    ════════════════════════════════════════════════ */
+    window.addEventListener('DOMContentLoaded', () => {
+      const user = JSON.parse(localStorage.getItem('cer_user') || 'null');
+      if (!token || !user || user.role !== 'admin') {
+        window.location.href = 'login.html';
+        return;
+      }
+      document.getElementById('adminNameDisplay').textContent = user.name.toUpperCase();
+      initDashboard();
+    });
+
+    /* ════════════════════════════════════════════════
+       API HELPER
+    ════════════════════════════════════════════════ */
+    async function api(endpoint, method = 'GET', body = null) {
+      const opts = {
+        method,
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` }
+      };
+      if (body) opts.body = JSON.stringify(body);
+      const res = await fetch(`${API}${endpoint}`, opts);
+      const data = await res.json();
+      if (res.status === 401) { logout(); return null; }
+      return { ok: res.ok, status: res.status, data };
+    }
+
+    /* ════════════════════════════════════════════════
+       UI UTILS
+    ════════════════════════════════════════════════ */
+    function openModal(id) {
+      const modal = document.getElementById(id);
+      if (modal) modal.classList.add('show');
+    }
+
+    function closeModal(id) {
+      const modal = document.getElementById(id);
+      if (modal) modal.classList.remove('show');
+    }
+
+    function showToast(msg, type = 'info') {
+      const toast = document.getElementById('toast');
+      toast.textContent = msg;
+      toast.className = `toast ${type} show`;
+      setTimeout(() => toast.classList.remove('show'), 3000);
+    }
+
+    function logout() {
+      localStorage.removeItem('cer_token');
+      localStorage.removeItem('cer_user');
+      window.location.href = 'login.html';
+    }
+
+    /* ════════════════════════════════════════════════
+       INIT
+    ════════════════════════════════════════════════ */
+    async function initDashboard() {
+      await Promise.all([loadStats(), loadStudents(), loadRooms(), loadIssues()]);
+      loadLeaderboard();
+    }
+
+    /* ════════════════════════════════════════════════
+       NAVIGATION
+    ════════════════════════════════════════════════ */
+    function showSection(name) {
+      document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+      document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+      document.getElementById(`section-${name}`).classList.add('active');
+      event.currentTarget.classList.add('active');
+
+      if (name === 'leaderboard') loadLeaderboard();
+      if (name === 'access') renderAccessTable();
+    }
+
+    /* ════════════════════════════════════════════════
+       LOAD STATS
+    ════════════════════════════════════════════════ */
+    async function loadStats() {
+      const res = await api('/admin/stats');
+      if (!res || !res.ok) return;
+      const s = res.data.stats;
+
+      document.getElementById('statStudents').textContent  = s.total_students || 0;
+      document.getElementById('statSessions').textContent  = s.total_sessions || 0;
+      document.getElementById('statCompleted').textContent = s.completed_games  || 0;
+      document.getElementById('statRooms').textContent     = s.total_rooms    || 0;
+      document.getElementById('statAttempts').textContent  = s.total_attempts || 0;
+      document.getElementById('statBanned').textContent    = s.banned_students|| 0;
+
+      const top = res.data.top_students || [];
+      const topList = document.getElementById('topStudentsList');
+      if (!top.length) {
+        topList.innerHTML = '<div class="empty-state"><span class="empty-icon">🏆</span>No data yet</div>';
+      } else {
+        topList.innerHTML = top.map((t, i) => `
+          <div class="top-student-row">
+            <div class="ts-rank">#${i + 1}</div>
+            <div class="ts-name">${t.name} <span class="ts-batch" style="margin-left:8px;padding:2px 6px;background:rgba(0,255,65,0.1);border-radius:2px">${t.batch || '—'}</span></div>
+            <div class="ts-score">${t.score || 0} PTS</div>
+          </div>
+        `).join('');
+      }
+
+      const batchSel = document.getElementById('lbBatchFilter');
+      if (batchSel) {
+        batchSel.innerHTML = '<option value="">ALL BATCHES</option>' + 
+          (res.data.batches || []).map(b => `<option value="${b}">${b}</option>`).join('');
+      }
+    }
+    async function loadStudents() {
+      const res = await api('/admin/students');
+      if (!res || !res.ok) return;
+      allStudents = res.data.students;
+      document.getElementById('studentCountBadge').textContent = allStudents.length;
+      document.getElementById('statStudents').textContent = allStudents.length;
+      renderStudentTable(allStudents);
+      renderAccessTable();
+    }
+
+    function renderStudentTable(students) {
+      document.getElementById('studentTableCount').textContent = students.length;
+      const tbody = document.getElementById('studentTableBody');
+
+      if (!students.length) {
+        tbody.innerHTML = '<tr><td colspan="8"><div class="empty-state"><span class="empty-icon">👥</span>No students yet. Add one!</div></td></tr>';
+        return;
+      }
+
+      tbody.innerHTML = students.map((s, i) => {
+        const roomChips = (s.assigned_room_ids || []).map(rid => {
+          const room = allRooms.find(r => r.id === rid);
+          if (!room) return '';
+          const col = ROOM_COLORS[room.language] || '#00ff41';
+          return `<span class="room-chip" style="color:${col};border-color:${col}40;background:${col}15">${room.language}</span>`;
+        }).join('');
+
+        return `
+    <tr>
+      <td style="color:var(--green-dim)">${i + 1}</td>
+      <td style="color:var(--green);font-weight:bold">${s.name}</td>
+      <td style="color:rgba(0,255,65,0.6)">${s.email}</td>
+      <td>${s.roll_number || '—'}</td>
+      <td><span class="badge badge-cyan">${s.batch || '—'}</span></td>
+      <td>
+        <span class="badge ${s.is_active ? 'badge-green' : 'badge-red'}">
+          ${s.is_active ? '● ACTIVE' : '○ INACTIVE'}
+        </span>
+      </td>
+      <td>
+        <div class="room-chips">
+          ${roomChips || '<span style="color:rgba(0,255,65,0.25);font-size:0.65rem">None assigned</span>'}
+        </div>
+      </td>
+      <td>
+        <div style="display:flex;gap:6px;flex-wrap:wrap">
+          <button class="btn btn-amber btn-sm" onclick="openAssignModal(${s.id}, '${s.name}', ${JSON.stringify(s.assigned_room_ids)})">🔑 ROOMS</button>
+          <button class="btn btn-sm ${s.is_active ? 'btn-red' : 'btn-green'}" onclick="toggleStudent(${s.id})">
+            ${s.is_active ? '⛔ DEACTIVATE' : '✓ ACTIVATE'}
+          </button>
+        </div>
+      </td>
+    </tr>`;
+      }).join('');
+    }
+
+    function filterStudents() {
+      const q = document.getElementById('studentSearch').value.toLowerCase();
+      const filtered = allStudents.filter(s =>
+        s.name.toLowerCase().includes(q) ||
+        (s.batch || '').toLowerCase().includes(q) ||
+        (s.roll_number || '').toLowerCase().includes(q)
+      );
+      renderStudentTable(filtered);
+    }
+
+    /* ════════════════════════════════════════════════
+       LOAD ROOMS
+    ════════════════════════════════════════════════ */
+    async function loadRooms() {
+      const res = await api('/admin/rooms');
+      if (!res || !res.ok) return;
+      allRooms = res.data.rooms;
+      renderRoomCards();
+      populateRoomFilters();
+      buildRoomCheckboxes('addRoomChecks');
+      buildRoomCheckboxes('batchRoomChecks');
+      // Populate AI question generator room select
+      const aiSel = document.getElementById('aiGenRoom');
+      if (aiSel) {
+        aiSel.innerHTML = '<option value="">-- Select a room --</option>' +
+          allRooms.map(r => `<option value="${r.id}">${r.language} — ${r.name}</option>`).join('');
+      }
+    }
+
+    function renderRoomCards() {
+      const grid = document.getElementById('roomCardsGrid');
+      grid.innerHTML = allRooms.map(r => {
+        const col = ROOM_COLORS[r.language] || '#00ff41';
+        return `
+    <div class="stat-card" style="--accent:${col}; position:relative; cursor:pointer;" onclick="viewAdminQuestions(${r.id}, '${r.name}')">
+      <button class="btn btn-red btn-sm" onclick="event.stopPropagation(); deleteRoom(${r.id}, '${r.name}')" style="position:absolute; top:10px; right:10px; padding:2px 6px; font-size:0.6rem; z-index:10;">✕ DELETE</button>
+      <span class="stat-icon">🏚️</span>
+      <span class="stat-val" style="color:${col};text-shadow:0 0 10px ${col};font-size:1.4rem">${r.language}</span>
+      <span class="stat-label" style="color:${col}88">${r.name}</span>
+      <div style="margin-top:10px;font-size:0.62rem;color:rgba(0,255,65,0.4)">${r.question_count || 0} QUESTIONS</div>
+      <div style="margin-top:4px">
+        <span class="badge ${r.is_active ? 'badge-green' : 'badge-red'}">${r.is_active ? '● ACTIVE' : '○ INACTIVE'}</span>
+      </div>
+    </div>`;
+      }).join('');
+    }
+
+    function populateRoomFilters() {
+      const sel = document.getElementById('lbRoomFilter');
+      sel.innerHTML = '<option value="overall">OVERALL</option>' +
+        allRooms.map(r => `<option value="${r.id}">${r.language}</option>`).join('');
+    }
+
+    function buildRoomCheckboxes(containerId) {
+      const container = document.getElementById(containerId);
+      if (!container) return;
+      container.innerHTML = allRooms.map(r => {
+        const col = ROOM_COLORS[r.language] || '#00ff41';
+        return `
+    <div class="room-check-item" id="check-${containerId}-${r.id}" onclick="toggleRoomCheck(this, '${containerId}', ${r.id})">
+      <input type="checkbox" value="${r.id}"/>
+      <div class="check-dot"></div>
+      <span style="color:${col}">${r.language}</span>
+    </div>`;
+      }).join('');
+    }
+
+    function toggleRoomCheck(el, containerId, roomId) {
+      el.classList.toggle('checked');
+    }
+
+    function getCheckedRooms(containerId) {
+      return Array.from(document.querySelectorAll(`#${containerId} .room-check-item.checked`))
+        .map(el => parseInt(el.querySelector('input').value));
+    }
+
+    function setCheckedRooms(containerId, roomIds) {
+      document.querySelectorAll(`#${containerId} .room-check-item`).forEach(el => {
+        const id = parseInt(el.querySelector('input').value);
+        el.classList.toggle('checked', roomIds.includes(id));
+      });
+    }
+
+    /* ════════════════════════════════════════════════
+       CREATE ROOM
+    ════════════════════════════════════════════════ */
+    async function createRoom() {
+      const name = document.getElementById('rName').value.trim();
+      const language = document.getElementById('rLanguage').value.trim();
+      const desc = document.getElementById('rDesc').value.trim();
+      const lore = document.getElementById('rLore').value.trim();
+      const time = document.getElementById('rTime').value;
+      const color = document.getElementById('rColor').value.trim();
+      const isPublic = document.getElementById('rPublic').checked;
+
+      if (!name || !language) {
+        showToast('Name and Language are required!', 'error');
+        return;
+      }
+
+      const payload = {
+        name,
+        language,
+        description: desc,
+        lore,
+        time_limit: parseInt(time) || 180,
+        color_var: color || '#00ff41',
+        is_public: isPublic
+      };
+
+      const res = await api('/admin/rooms', 'POST', payload);
+      if (!res || !res.ok) { 
+        showToast(res?.data?.error || 'Failed to create room', 'error'); 
+        return; 
+      }
+
+      showToast(`✓ Room ${name} created!`, 'success');
+      closeModal('addRoomModal');
+      
+      // Clear form
+      ['rName', 'rLanguage', 'rDesc', 'rLore', 'rColor'].forEach(id => document.getElementById(id).value = '');
+      document.getElementById('rTime').value = '180';
+      document.getElementById('rPublic').checked = false;
+      
+      // Reload rooms to show the new one
+      await loadRooms();
+    }
+
+    /* ════════════════════════════════════════════════
+       CREATE STUDENT
+    ════════════════════════════════════════════════ */
+    async function createStudent() {
+      const name = document.getElementById('sName').value.trim();
+      const email = document.getElementById('sEmail').value.trim();
+      const password = document.getElementById('sPassword').value;
+      const batch = document.getElementById('sBatch').value.trim();
+      const roll = document.getElementById('sRoll').value.trim();
+      const roomIds = getCheckedRooms('addRoomChecks');
+
+      if (!name || !email || !password || !batch) {
+        showToast('Fill all required fields!', 'error');
+        return;
+      }
+
+      const res = await api('/admin/students', 'POST', { name, email, password, batch, roll_number: roll });
+      if (!res || !res.ok) { showToast(res?.data?.error || 'Failed to create student', 'error'); return; }
+
+      const newStudentId = res.data.student.id;
+
+      // Assign rooms if selected
+      if (roomIds.length > 0) {
+        await api(`/admin/students/${newStudentId}/access`, 'POST', { room_ids: roomIds });
+      }
+
+      showToast(`✓ Student ${name} created!`, 'success');
+      closeModal('addStudentModal');
+      clearAddForm();
+      await loadStudents();
+    }
+
+    function clearAddForm() {
+      ['sName', 'sEmail', 'sPassword', 'sBatch', 'sRoll'].forEach(id => document.getElementById(id).value = '');
+      document.querySelectorAll('#addRoomChecks .room-check-item').forEach(el => el.classList.remove('checked'));
+    }
+
+    /* ════════════════════════════════════════════════
+       TOGGLE STUDENT ACTIVE
+    ════════════════════════════════════════════════ */
+    async function toggleStudent(id) {
+      const res = await api(`/admin/students/${id}/toggle`, 'POST');
+      if (!res || !res.ok) { showToast('Failed to update status', 'error'); return; }
+      showToast(res.data.message, 'success');
+      await loadStudents();
+    }
+
+    /* ════════════════════════════════════════════════
+       ASSIGN ROOMS MODAL
+    ════════════════════════════════════════════════ */
+    function openAssignModal(studentId, studentName, currentRoomIds) {
+      assigningStudentId = studentId;
+      document.getElementById('assignStudentName').textContent = studentName.toUpperCase();
+      buildRoomCheckboxes('assignRoomChecks');
+      setCheckedRooms('assignRoomChecks', currentRoomIds || []);
+      openModal('assignRoomsModal');
+    }
+
+    async function saveRoomAssignment() {
+      const roomIds = getCheckedRooms('assignRoomChecks');
+
+      // First remove all existing access, then assign selected
+      const student = allStudents.find(s => s.id === assigningStudentId);
+      if (student) {
+        for (const rid of student.assigned_room_ids || []) {
+          await api(`/admin/students/${assigningStudentId}/access/${rid}`, 'DELETE');
+        }
+      }
+
+      if (roomIds.length > 0) {
+        const res = await api(`/admin/students/${assigningStudentId}/access`, 'POST', { room_ids: roomIds });
+        if (!res || !res.ok) { showToast('Failed to assign rooms', 'error'); return; }
+      }
+
+      showToast(`✓ Room access updated!`, 'success');
+      closeModal('assignRoomsModal');
+      await loadStudents();
+    }
+
+    /* ════════════════════════════════════════════════
+       BATCH ASSIGN
+    ════════════════════════════════════════════════ */
+    function openBatchModal() {
+      // Populate batch dropdown
+      const batches = [...new Set(allStudents.map(s => s.batch).filter(Boolean))];
+      const sel = document.getElementById('batchSelect');
+      sel.innerHTML = '<option value="">-- Select Batch --</option>' +
+        batches.map(b => `<option value="${b}">${b}</option>`).join('');
+      buildRoomCheckboxes('batchRoomChecks');
+      openModal('batchModal');
+    }
+
+    async function saveBatchAssignment() {
+      const batch = document.getElementById('batchSelect').value;
+      const roomIds = getCheckedRooms('batchRoomChecks');
+
+      if (!batch) { showToast('Select a batch first!', 'error'); return; }
+      if (!roomIds.length) { showToast('Select at least one room!', 'error'); return; }
+
+      const res = await api('/admin/batch-access', 'POST', { batch, room_ids: roomIds });
+      if (!res || !res.ok) { showToast(res?.data?.error || 'Failed', 'error'); return; }
+
+      showToast(`✓ ${res.data.message}`, 'success');
+      closeModal('batchModal');
+      await loadStudents();
+    }
+
+    /* ════════════════════════════════════════════════
+       ACCESS TABLE
+    ════════════════════════════════════════════════ */
+    function renderAccessTable(data = allStudents) {
+      const tbody = document.getElementById('accessTableBody');
+      if (!data.length) {
+        tbody.innerHTML = '<tr><td colspan="4"><div class="empty-state"><span class="empty-icon">🔑</span>No students</div></td></tr>';
+        return;
+      }
+      tbody.innerHTML = data.map(s => {
+        const chips = (s.assigned_room_ids || []).map(rid => {
+          const room = allRooms.find(r => r.id === rid);
+          if (!room) return '';
+          const col = ROOM_COLORS[room.language] || '#00ff41';
+          return `<span class="room-chip" style="color:${col};border-color:${col}40;background:${col}15">${room.language}</span>`;
+        }).join('');
+        return `
+    <tr>
+      <td style="color:var(--green)">${s.name}</td>
+      <td><span class="badge badge-cyan">${s.batch || '—'}</span></td>
+      <td><div class="room-chips">${chips || '<span style="color:rgba(0,255,65,0.2);font-size:0.65rem">No rooms assigned</span>'}</div></td>
+      <td><button class="btn btn-amber btn-sm" onclick="openAssignModal(${s.id},'${s.name}',${JSON.stringify(s.assigned_room_ids)})">🔑 MANAGE</button></td>
+    </tr>`;
+      }).join('');
+    }
+
+    function filterAccess() {
+      const q = document.getElementById('accessSearch').value.toLowerCase();
+      const filtered = allStudents.filter(s =>
+        s.name.toLowerCase().includes(q) || (s.batch || '').toLowerCase().includes(q)
+      );
+      renderAccessTable(filtered);
+    }
+
+    /* ════════════════════════════════════════════════
+       ISSUES
+    ════════════════════════════════════════════════ */
+    let currentIssuesFilter = false; // false = open, true = resolved
+
+    async function loadIssues() {
+      const res = await api(`/admin/issues?resolved=${currentIssuesFilter}`);
+      if (!res || !res.ok) return;
+      const issues = res.data.issues || [];
+      const tbody = document.getElementById('issuesTableBody');
+      const badge = document.getElementById('issueCountBadge');
+      if (badge && !currentIssuesFilter) badge.textContent = issues.length;
+
+      if (!issues.length) {
+        tbody.innerHTML = '<tr><td colspan="7"><div class="empty-state"><span class="empty-icon">🎫</span>No issues found</div></td></tr>';
+        return;
+      }
+
+      tbody.innerHTML = issues.map((i, idx) => `
+        <tr>
+          <td style="color:var(--green-dim)">${idx + 1}</td>
+          <td style="color:var(--green)">${i.player_name || '—'}</td>
+          <td><span class="badge badge-cyan">${i.category || 'OTHER'}</span></td>
+          <td>${i.title || 'Untitled'}</td>
+          <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:rgba(0,255,65,0.6)">${i.description || '—'}</td>
+          <td><span class="badge ${i.resolved ? 'badge-green' : 'badge-amber'}">${i.resolved ? 'RESOLVED' : 'OPEN'}</span></td>
+          <td>
+            <div style="display:flex;gap:6px;flex-wrap:wrap">
+              ${!i.resolved ? `<button class="btn btn-green btn-sm" onclick="resolveIssue(${i.id})">✓ RESOLVE</button>` : ''}
+              <button class="btn btn-red btn-sm" onclick="deleteIssue(${i.id})">🗑️</button>
+            </div>
+          </td>
+        </tr>
+      `).join('');
+    }
+
+    function setIssueFilter(resolved) {
+      currentIssuesFilter = resolved;
+      loadIssues();
+    }
+
+    async function resolveIssue(id) {
+      const res = await api(`/admin/issues/${id}/resolve`, 'POST');
+      if (res && res.ok) {
+        showToast('Issue marked as resolved', 'success');
+        loadIssues();
+      } else {
+        showToast('Failed to resolve issue', 'error');
+      }
+    }
+
+    async function deleteIssue(id) {
+      if (!confirm('Are you sure you want to delete this issue?')) return;
+      const res = await api(`/admin/issues/${id}`, 'DELETE');
+      if (res && res.ok) {
+        showToast('Issue deleted', 'success');
+        loadIssues();
+      } else {
+        showToast('Failed to delete issue', 'error');
+      }
+    }
+
+    /* ════════════════════════════════════════════════
+       LEADERBOARD
+    ════════════════════════════════════════════════ */
+    async function loadLeaderboard() {
+      const roomFilter = document.getElementById('lbRoomFilter')?.value || 'overall';
+      const batchFilter = document.getElementById('lbBatchFilter')?.value || '';
+
+      let endpoint = roomFilter === 'overall'
+        ? '/leaderboard/overall'
+        : `/leaderboard/room/${roomFilter}`;
+
+      if (batchFilter && roomFilter === 'overall') {
+        endpoint = `/leaderboard/batch/${batchFilter}`;
+      }
+
+      const res = await api(endpoint);
+      if (!res || !res.ok) return;
+
+      const lb = res.data.leaderboard || [];
+      const tbody = document.getElementById('leaderboardBody');
+      const medals = ['🥇', '🥈', '🥉'];
+
+      if (!lb.length) {
+        tbody.innerHTML = '<tr><td colspan="6"><div class="empty-state"><span class="empty-icon">🏆</span>No scores yet</div></td></tr>';
+        return;
+      }
+
+      tbody.innerHTML = lb.map((entry, i) => `
+    <tr style="${entry.is_me ? 'background:rgba(0,255,65,0.06)' : ''}">
+      <td class="lb-rank">${medals[i] || entry.rank}</td>
+      <td style="color:var(--green);font-weight:bold">${entry.name} ${entry.is_me ? '<span class="badge badge-green">YOU</span>' : ''}</td>
+      <td><span class="badge badge-cyan">${entry.batch || '—'}</span></td>
+      <td style="color:var(--amber);font-family:var(--font-hud)">${entry.total_score || entry.score || 0}</td>
+      <td>${entry.rooms_completed || entry.correct || '—'}</td>
+      <td style="color:rgba(0,255,65,0.5)">${entry.best_time ? formatTime(entry.best_time) : '—'}</td>
+    </tr>
+  `).join('');
+    }
+
+    function formatTime(seconds) {
+      if (!seconds) return '—';
+      const m = Math.floor(seconds / 60);
+      const s = seconds % 60;
+      return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+    }
+
+    async function deleteRoom(id, name) {
+      if (!confirm(`WARNING: Are you sure you want to delete the room "${name}"? This action cannot be undone and will delete associated questions.`)) return;
+      
+      const res = await api(`/admin/rooms/${id}`, 'DELETE');
+      if (!res || !res.ok) {
+        showToast(res?.data?.error || 'Failed to delete room', 'error');
+        return;
+      }
+      showToast(`Room deleted successfully`, 'success');
+      await loadRooms();
+    }
+
+    async function generateQuestions() {
+      const roomSelect = document.getElementById('aiGenRoom');
+      const countInput = document.getElementById('aiGenCount');
+      const diffSelect = document.getElementById('aiGenDiff');
+      const btn = document.getElementById('aiGenBtn');
+      const statusDiv = document.getElementById('aiGenStatus');
+      const resultsDiv = document.getElementById('aiGenResults');
+
+      const room_id = roomSelect.value;
+      const count = parseInt(countInput.value) || 5;
+      const difficulty = diffSelect.value;
+      const syllabus = document.getElementById('aiGenSyllabus') ? document.getElementById('aiGenSyllabus').value : "";
+      const include_images = document.getElementById('aiGenImages') ? document.getElementById('aiGenImages').checked : false;
+
+      if (!room_id) {
+        showToast('Please select a room first.', 'error');
+        return;
+      }
+
+      btn.disabled = true;
+      btn.innerHTML = '🤖 GENERATING... PLEASE WAIT';
+      statusDiv.innerHTML = '<span style="color:var(--amber)">Sending request to NVIDIA NIM... This may take up to 20 seconds.</span>';
+      resultsDiv.innerHTML = '';
+
+      try {
+        const payload = { room_id: parseInt(room_id), count, difficulty, syllabus, include_images };
+        const res = await api('/admin/questions/generate', 'POST', payload);
+
+        if (!res || !res.ok) {
+          statusDiv.innerHTML = `<span style="color:var(--red)">Failed: ${res?.data?.error || 'Server error'}</span>`;
+        } else {
+          statusDiv.innerHTML = `<span style="color:var(--green)">✓ Success! ${res.data.count} questions added.</span>`;
+          if (res.data.questions) {
+            resultsDiv.innerHTML = res.data.questions.map(q => 
+              `<div style="padding:6px; background:rgba(0,255,65,0.05); border:1px solid rgba(0,255,65,0.2); margin-top:4px; font-size:0.65rem;">${q}</div>`
+            ).join('');
+          }
+          await loadRooms();
+        }
+      } catch (err) {
+        statusDiv.innerHTML = `<span style="color:var(--red)">Network error</span>`;
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = '🤖 GENERATE QUESTIONS';
+      }
+    }
+
+    async function viewAdminQuestions(id, name) {
+      if(id) currentViewRoomId = id;
+      if(name) currentViewRoomName = name;
+
+      document.getElementById('vqTitle').textContent = `QUESTIONS - ${currentViewRoomName.toUpperCase()}`;
+      document.getElementById('vqContent').innerHTML = '<span style="color:var(--cyan)">Loading questions...</span>';
+      openModal('viewQuestionsModal');
+
+      const res = await api(`/admin/rooms/${currentViewRoomId}/questions`, 'GET');
+      if (!res || !res.ok) {
+        document.getElementById('vqContent').innerHTML = `<span class="badge badge-red">Failed to load questions: ${res?.data?.error || 'Server Error'}</span>`;
+        return;
+      }
+
+      const questions = res.data.questions || [];
+      if (questions.length === 0) {
+        document.getElementById('vqContent').innerHTML = '<span style="color:rgba(0,255,65,0.5)">No questions found in this room. Generate some!</span>';
+        return;
+      }
+
+      let html = '';
+      const prefixes=['A.','B.','C.','D.','a)','b)','c)','d)','1.','2.','3.','4.'];
+      questions.forEach((q, i) => {
+        let optionsHtml = '';
+        if (q.options) {
+          optionsHtml = '<div style="margin-top: 5px; display:grid; grid-template-columns: 1fr 1fr; gap:5px;">';
+          q.options.forEach((opt, idx) => {
+            let cleanOpt = String(opt).trim();
+            prefixes.forEach(p => { if(cleanOpt.startsWith(p)) cleanOpt = cleanOpt.replace(p,'').trim(); });
+            const isCorrect = idx === q.correct_index;
+            optionsHtml += `<div style="padding: 4px 8px; border-radius: 4px; background: ${isCorrect ? 'rgba(0,255,65,0.1)' : 'rgba(255,255,255,0.05)'}; border: 1px solid ${isCorrect ? 'var(--green)' : 'rgba(255,255,255,0.1)'}; color: ${isCorrect ? 'var(--green)' : '#ccc'};">${String.fromCharCode(65 + idx)}. ${cleanOpt}</div>`;
+          });
+          optionsHtml += '</div>';
+        }
+
+        html += `
+          <div style="background: rgba(0,0,0,0.3); border: 1px solid rgba(0,255,65,0.2); margin-bottom: 15px; padding: 15px; border-radius: 8px; position:relative;">
+            <button class="btn btn-red btn-sm" onclick="deleteQuestion(${q.id})" style="position:absolute; top:10px; right:10px; padding:2px 8px; cursor:pointer; z-index:100;">✕</button>
+            <div style="display:flex; justify-content:space-between; margin-bottom:10px; padding-right:35px;">
+              <span class="badge badge-cyan">Q${i + 1}</span>
+              <span class="badge" style="background:var(--bg-dark); border-color:var(--amber); color:var(--amber)">${q.difficulty ? q.difficulty.toUpperCase() : 'UNKNOWN'}</span>
+            </div>
+            <p style="font-family: var(--font-main); color: #fff; margin-bottom: 10px;">${q.question}</p>
+            ${q.image_url ? `<div style="margin-bottom:10px;"><img src="${q.image_url}" onerror="this.src='https://placehold.co/800x400/000000/00FF41?text=CODE+DIAGRAM'" style="max-width:100%; border-radius:4px; max-height:200px; object-fit:contain; border:1px solid rgba(0,255,65,0.2);" /></div>` : ''}
+            ${q.code ? `<pre style="background:var(--bg-dark); padding:10px; border-left:3px solid var(--green); overflow-x:auto; font-family:var(--font-mono); font-size:0.8rem; margin-bottom:10px;"><code>${q.code.replace(/</g, "&lt;").replace(/>/g, "&gt;")}</code></pre>` : ''}
+            ${optionsHtml}
+          </div>
+        `;
+      });
+
+      document.getElementById('vqContent').innerHTML = html;
+    }
+
+    async function deleteQuestion(qId) {
+      if (!confirm('Are you sure you want to delete this question?')) return;
+      const res = await api(`/admin/questions/${qId}`, 'DELETE');
+      if (res && res.ok) {
+        showToast('Question deleted');
+        viewAdminQuestions();
+        loadRooms();
+      } else {
+        showToast(res?.data?.error || 'Failed to delete question', 'error');
+      }
+    }
+
+    async function deleteAllQuestions() {
+      if (!currentViewRoomId) return;
+      if (!confirm(`WARNING: Are you sure you want to delete ALL questions? This cannot be undone.`)) return;
+      const res = await api(`/admin/rooms/${currentViewRoomId}/questions/all`, 'DELETE');
+      if (res && res.ok) {
+        showToast('All questions deleted', 'success');
+        viewAdminQuestions();
+        loadRooms();
+      } else {
+        showToast(res?.data?.error || 'Failed to delete all questions', 'error');
+      }
+    }
+
+    function openAddManualQuestion() {
+      if (!currentViewRoomId) return;
+      document.getElementById('addQText').value = '';
+      document.getElementById('addQCode').value = '';
+      document.getElementById('addQOp0').value = '';
+      document.getElementById('addQOp1').value = '';
+      document.getElementById('addQOp2').value = '';
+      document.getElementById('addQOp3').value = '';
+      document.getElementById('addQImage').value = '';
+      document.getElementById('addQCorrect').value = '0';
+      document.getElementById('addQDiff').value = 'medium';
+      openModal('addQuestionModal');
+    }
+
+    async function submitManualQuestion() {
+      if (!currentViewRoomId) return;
+      const question = document.getElementById('addQText').value.trim();
+      const code = document.getElementById('addQCode').value.trim();
+      const op0 = document.getElementById('addQOp0').value.trim();
+      const op1 = document.getElementById('addQOp1').value.trim();
+      const op2 = document.getElementById('addQOp2').value.trim();
+      const op3 = document.getElementById('addQOp3').value.trim();
+      const image_url = document.getElementById('addQImage').value.trim();
+      const correct_index = document.getElementById('addQCorrect').value;
+      const difficulty = document.getElementById('addQDiff').value;
+
+      if (!question || !op0 || !op1 || !op2 || !op3) {
+        showToast('Question text and all 4 options are required!', 'error');
+        return;
+      }
+
+      const payload = {
+        question,
+        code: code || null,
+        image_url: image_url || null,
+        options: [op0, op1, op2, op3],
+        correct_index: parseInt(correct_index),
+        difficulty
+      };
+
+      const btn = document.getElementById('addQSaveBtn');
+      btn.disabled = true;
+      btn.textContent = 'SAVING...';
+      const res = await api(`/admin/rooms/${currentViewRoomId}/questions`, 'POST', payload);
+      btn.disabled = false;
+      btn.textContent = 'SAVE QUESTION';
+
+      if (res && res.ok) {
+        showToast('Question added', 'success');
+        closeModal('addQuestionModal');
+        viewAdminQuestions();
+        loadRooms();
+      } else {
+        showToast(res?.data?.error || 'Failed to add question', 'error');
+      }
+    }
+  </script>
+</body>
+</html>
