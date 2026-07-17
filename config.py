@@ -24,7 +24,7 @@ class Config:
 
     # ── NVIDIA NIM API Key
     # Paste your nvapi- key below (keep the quotes)
-    NVIDIA_API_KEY = os.environ.get('NVIDIA_API_KEY', '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')
+    NVIDIA_API_KEY = os.environ.get('NVIDIA_API_KEY', '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')
 
     # ── App
     DEBUG = os.environ.get('FLASK_DEBUG', 'true').lower() == 'true'
