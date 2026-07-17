@@ -23,8 +23,8 @@ class Config:
     SQLALCHEMY_ECHO = False
 
     # ── NVIDIA NIM API Key
-    # Paste your nvapi- key below (keep the quotes)
-    NVIDIA_API_KEY = os.environ.get('NVIDIA_API_KEY', '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')
+    # Set NVIDIA_API_KEY as an environment variable (Render dashboard, or local .env)
+    NVIDIA_API_KEY = os.environ.get('NVIDIA_API_KEY')
 
     # ── App
     DEBUG = os.environ.get('FLASK_DEBUG', 'true').lower() == 'true'
