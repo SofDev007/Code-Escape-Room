@@ -12,7 +12,7 @@ class User(db.Model):
     username      = db.Column(db.String(60),  unique=True, nullable=True, index=True)
     email         = db.Column(db.String(150), unique=True, nullable=False)
     password_hash = db.Column(db.String(255), nullable=False)
-    role          = db.Column(db.Enum('admin','student'), default='student')
+    role          = db.Column(db.Enum('admin','student', name='user_role'), default='student')
     batch         = db.Column(db.String(50))
     roll_number   = db.Column(db.String(20))
     is_active     = db.Column(db.Boolean,     default=True)
@@ -82,7 +82,7 @@ class Question(db.Model):
 
     id             = db.Column(db.Integer,            primary_key=True)
     room_id        = db.Column(db.Integer,            db.ForeignKey('rooms.id'), nullable=False)
-    type           = db.Column(db.Enum('mcq','fill'), nullable=False)
+    type           = db.Column(db.Enum('mcq','fill', name='question_type'), nullable=False)
     tag            = db.Column(db.String(100))
     question_text  = db.Column(db.Text,               nullable=False)
     code_snippet   = db.Column(db.Text)
@@ -92,7 +92,7 @@ class Question(db.Model):
     correct_index  = db.Column(db.SmallInteger)
     correct_answer = db.Column(db.String(255))
     hint           = db.Column(db.Text)
-    difficulty     = db.Column(db.Enum('easy','medium','hard'), default='medium')
+    difficulty     = db.Column(db.Enum('easy','medium','hard', name='question_difficulty'), default='medium')
     created_at     = db.Column(db.DateTime,           default=datetime.utcnow)
 
     def to_dict(self, include_answer=False):
@@ -142,10 +142,10 @@ class QuizSession(db.Model):
 
     id           = db.Column(db.Integer, primary_key=True)
     user_id      = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
-    difficulty   = db.Column(db.Enum('easy','medium','hard'), default='medium')
+    difficulty   = db.Column(db.Enum('easy','medium','hard', name='session_difficulty'), default='medium')
     total_score  = db.Column(db.Integer, default=0)
     lives_left   = db.Column(db.Integer, default=3)
-    status       = db.Column(db.Enum('in_progress','completed','failed','timeout'), default='in_progress')
+    status       = db.Column(db.Enum('in_progress','completed','failed','timeout', name='session_status'), default='in_progress')
     started_at   = db.Column(db.DateTime, default=datetime.utcnow)
     completed_at = db.Column(db.DateTime)
     time_taken   = db.Column(db.Integer)
@@ -179,7 +179,7 @@ class RoomAttempt(db.Model):
     wrong_count   = db.Column(db.Integer, default=0)
     hints_used    = db.Column(db.Integer, default=0)
     time_taken    = db.Column(db.Integer)
-    status        = db.Column(db.Enum('completed','failed','timeout'), default='completed')
+    status        = db.Column(db.Enum('completed','failed','timeout', name='room_attempt_status'), default='completed')
     attempted_at  = db.Column(db.DateTime, default=datetime.utcnow)
 
     question_attempts = db.relationship('QuestionAttempt', backref='room_attempt', lazy=True)

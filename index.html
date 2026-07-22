@@ -8,7 +8,6 @@
   <link rel="stylesheet" href="style.css" />
   <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&family=VT323&display=swap" rel="stylesheet"/>
   <link rel="icon" type="image/svg+xml" href="favicon.svg"/>
-  <link rel="icon" type="image/png" sizes="32x32" href="favicon.svg"/>
   <link rel="apple-touch-icon" sizes="180x180" href="favicon.svg"/>
   <style>
     /* ── ROOM SELECTION ADDITIONS ── */
@@ -401,7 +400,9 @@
   <script src="script.js"></script>
   <script>
   /* ════════ ROOM SELECTION & HOME ENHANCEMENTS ════════ */
-  const API      = 'https://code-escape-room-kk9h.onrender.com/api';
+  const API      = (location.hostname === 'localhost' || location.hostname === '127.0.0.1')
+    ? '/api'
+    : 'https://code-escape-room-kk9h.onrender.com/api';
   const token    = localStorage.getItem('cer_token') || '';
   const user     = JSON.parse(localStorage.getItem('cer_user') || 'null');
 

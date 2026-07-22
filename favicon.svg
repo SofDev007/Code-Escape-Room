@@ -1,7 +1,7 @@
 <svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
   <rect x="0" y="0" width="512" height="512" rx="90" fill="#0a0f0c"/>
-  <path d="M 256 96 L 368 144 L 368 272 Q 368 368 256 416 Q 144 368 144 272 L 144 144 Z"
-        fill="none" stroke="#39ff6a" stroke-width="18" stroke-linejoin="round"/>
-  <text x="256" y="278" text-anchor="middle" font-family="ui-monospace, 'Cascadia Code', 'Courier New', monospace"
-        font-size="83" font-weight="700" fill="#39ff6a">&lt;/&gt;</text>
+  <circle cx="172" cy="256" r="76" fill="none" stroke="#39ff6a" stroke-width="34"/>
+  <line x1="248" y1="256" x2="416" y2="256" stroke="#39ff6a" stroke-width="34" stroke-linecap="round"/>
+  <line x1="382" y1="256" x2="382" y2="311" stroke="#39ff6a" stroke-width="25" stroke-linecap="round"/>
+  <line x1="416" y1="256" x2="416" y2="327" stroke="#39ff6a" stroke-width="25" stroke-linecap="round"/>
 </svg>

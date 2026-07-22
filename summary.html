@@ -4,6 +4,8 @@
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>CODE ESCAPE ROOM — MISSION SUMMARY</title>
+  <link rel="icon" type="image/svg+xml" href="favicon.svg"/>
+  <link rel="apple-touch-icon" sizes="180x180" href="favicon.svg"/>
   <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&family=VT323&display=swap" rel="stylesheet"/>
   <style>
     :root {
@@ -360,7 +362,9 @@
 
 <script>
 /* ════════ CONFIG ════════ */
-const API   = 'https://code-escape-room-kk9h.onrender.com/api';
+const API   = (location.hostname === 'localhost' || location.hostname === '127.0.0.1')
+  ? '/api'
+  : 'https://code-escape-room-kk9h.onrender.com/api';
 let   token = localStorage.getItem('cer_token') || '';
 
 const ROOM_COLORS = {
