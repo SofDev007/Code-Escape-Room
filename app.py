@@ -34,7 +34,7 @@ def create_app():
     app = Flask(__name__)
     app.config.from_object(Config)
 
-    CORS(app)
+    CORS(app, origins=["https://code-escape-room-kk9h.onrender.com", "http://localhost:5000", "http://127.0.0.1:5000"])
 
     db.init_app(app)
     bcrypt.init_app(app)
