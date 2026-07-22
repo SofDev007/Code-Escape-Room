@@ -23,7 +23,10 @@ html, body {
   background: var(--bg);
   color: var(--green);
   font-family: var(--font-mono);
-  overflow-x: hidden;
+  /* clip (not hidden) prevents sideways scroll WITHOUT creating a scroll
+     container — `overflow-x:hidden` alone forces overflow-y:auto, which
+     silently breaks `position: sticky` on descendant columns. */
+  overflow-x: clip;
 }
 
 /* Matrix Canvas Opacity */
@@ -198,6 +201,20 @@ html, body {
   flex: 1;
   padding: clamp(10px, 2vh, 24px) 0;
   align-items: start;
+}
+
+/* Desktop only: pin side columns below the fixed player-bar while the
+   taller center column scrolls. .main-grid already uses align-items:start,
+   so grid items keep their own height and sticky engages. */
+@media (min-width: 1101px) {
+  /* `.main-grid >` raises specificity above `.panel { position: relative }`
+     (defined later in this file), which otherwise wins on source order. */
+  .main-grid > .story-panel,
+  .main-grid > .right-panel {
+    position: sticky;
+    top: 56px;
+    align-self: start;
+  }
 }
 
 @media (max-width: 1100px) {

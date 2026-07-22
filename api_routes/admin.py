@@ -433,34 +433,61 @@ def generate_nvidia_image(prompt):
         print(f"NVIDIA Image Error: {e}")
     return None
 
-@admin_bp.route('/questions/generate', methods=['POST'])
-@jwt_required()
-def generate_questions():
-    admin, err, code = admin_required()
-    if err: return err, code
+# Syntax markers per language: used to anchor the prompt AND to validate
+# the model actually stayed in-language at runtime.
+LANG_MARKERS = {
+    'Python':     ['def ', 'elif', 'None', 'print(', ':'],
+    'Java':       ['public class', 'System.out.println', 'void', ';'],
+    'JavaScript': ['function', 'console.log', 'let ', 'const ', '=>'],
+    'C':          ['#include', 'printf', 'int main', ';'],
+    'C++':        ['#include', 'std::', 'cout', ';'],
+    'C#':         ['Console.WriteLine', 'using System', 'namespace', ';'],
+    'Go':         ['package main', 'func ', 'fmt.Println', ':='],
+    'SQL':        ['SELECT', 'FROM', 'WHERE', 'JOIN'],
+    'HTML/CSS':   ['<div', '</', 'class=', '{'],
+}
 
-    data       = request.get_json()
-    room_id    = data.get('room_id')
-    count      = int(data.get('count', 5))
-    difficulty = data.get('difficulty', 'medium')
-    syllabus   = data.get('syllabus', '').strip()
-    include_images = data.get('include_images', False)
+# One anchoring example snippet per language to pin Mistral-7B.
+LANG_EXAMPLES = {
+    'Python':     'print("Hello")\nfor i in range(3):\n    if i == 0:\n        pass',
+    'Java':       'public class Main { public static void main(String[] a){ System.out.println("Hi"); } }',
+    'JavaScript': 'function greet(){ const x = 1; let y = 2; console.log(x + y); }',
+    'C':          '#include <stdio.h>\nint main(){ printf("Hi"); return 0; }',
+    'C++':        '#include <iostream>\nint main(){ std::cout << "Hi"; return 0; }',
+    'C#':         'using System;\nclass P { static void Main(){ Console.WriteLine("Hi"); } }',
+    'Go':         'package main\nimport "fmt"\nfunc main(){ fmt.Println("Hi") }',
+    'SQL':        'SELECT name FROM users WHERE age > 18;',
+    'HTML/CSS':   '<div class="box">Hi</div>\n.box { color: red; }',
+}
 
-    if not room_id:
-        return jsonify({'error': 'room_id is required'}), 400
 
-    room = Room.query.get(room_id)
-    if not room:
-        return jsonify({'error': 'Room not found'}), 404
-    count = min(count, 10)  # Cap at 10 per request
+def language_ok(text, language):
+    """True if `text` contains at least one syntax marker for `language`.
+    Unknown languages (no markers) always pass."""
+    markers = LANG_MARKERS.get(language)
+    if not markers:
+        return True
+    return any(m in text for m in markers)
 
-    syllabus_rule = f"- STRICTLY restrict the questions to the following topics: {syllabus}" if syllabus else ""
+
+def build_generation_prompt(language, count, difficulty, syllabus, include_images):
+    """Build the NVIDIA NIM prompt with `language` as a hard constraint,
+    reinforced at the top and bottom and anchored with an example snippet."""
+    syllabus_rule = (
+        f"- Adapt these focus topics TO {language} (do NOT switch languages to suit them): {syllabus}"
+        if syllabus else ""
+    )
     image_rule = '- You MUST include a highly detailed "image_prompt" field for EVERY single question describing what visual illustration should accompany it!' if include_images else ""
     format_example = '    "image_prompt": "A highly detailed prompt describing an illustration of the code or concept",\n' if include_images else ""
+    example = LANG_EXAMPLES.get(language, "")
+    example_block = f'\nEvery code snippet MUST look like valid {language}, e.g.:\n{example}\n' if example else ""
 
-    prompt = f"""Generate {count} multiple-choice quiz questions about {room.language} programming for a coding escape room game.
+    return f"""You are writing quiz questions STRICTLY about the {language} programming language.
+Every question, code snippet, and option MUST use {language} syntax ONLY. Do not use any other language.
+
+Generate {count} multiple-choice quiz questions about {language} for a coding escape room game.
 Difficulty: {difficulty}
-
+{example_block}
 Return ONLY a valid JSON array, no explanation. Format:
 [
   {{
@@ -477,29 +504,62 @@ Rules:
 - correct_index is 0-based (0=A, 1=B, 2=C, 3=D)
 - Each question must have exactly 4 options
 - DO NOT include prefixes like "A.", "B.", "1.", or "a)" in the option text strings!
-- Questions should be relevant to {room.language} programming
 {syllabus_rule}
 {image_rule}
 - tag should be short like: SYNTAX, LOOPS, FUNCTIONS, OOP, etc.
-- Include code snippets for {min(count//2, 3)} questions"""
+- Include code snippets for {min(count//2, 3)} questions
+- CRITICAL: Use ONLY {language} syntax in every question and code snippet. Never mix in another language."""
+
+
+@admin_bp.route('/questions/generate', methods=['POST'])
+@jwt_required()
+def generate_questions():
+    admin, err, code = admin_required()
+    if err: return err, code
+
+    data       = request.get_json()
+    room_id    = data.get('room_id')
+    count      = int(data.get('count', 5))
+    difficulty = data.get('difficulty', 'medium')
+    language   = (data.get('language') or '').strip()
+    syllabus   = data.get('syllabus', '').strip()
+    include_images = data.get('include_images', False)
+
+    if not room_id:
+        return jsonify({'error': 'room_id is required'}), 400
+
+    room = Room.query.get(room_id)
+    if not room:
+        return jsonify({'error': 'Room not found'}), 404
+    # Language comes from the admin's dropdown; fall back to the room's language.
+    language = language or room.language
+    count = min(count, 10)  # Cap at 10 per request
+
+    prompt = build_generation_prompt(language, count, difficulty, syllabus, include_images)
 
     try:
-        response = requests.post(
-            NVIDIA_API_URL,
-            headers={
-                'Authorization': f'Bearer {Config.NVIDIA_API_KEY}',
-                'Content-Type':  'application/json'
-            },
-            json={
-                'model':       NVIDIA_MODEL,
-                'messages':    [{'role': 'user', 'content': prompt}],
-                'temperature': 0.7,
-                'max_tokens':  2048
-            },
-            timeout=60
-        )
-        response.raise_for_status()
-        content = response.json()['choices'][0]['message']['content'].strip()
+        # ponytail: keyword check + up to 2 retries. Mistral-7B drifts languages;
+        # a stricter validator (AST/lexer per language) isn't worth it here.
+        content = None
+        for attempt in range(3):
+            response = requests.post(
+                NVIDIA_API_URL,
+                headers={
+                    'Authorization': f'Bearer {Config.NVIDIA_API_KEY}',
+                    'Content-Type':  'application/json'
+                },
+                json={
+                    'model':       NVIDIA_MODEL,
+                    'messages':    [{'role': 'user', 'content': prompt}],
+                    'temperature': 0.7,
+                    'max_tokens':  2048
+                },
+                timeout=60
+            )
+            response.raise_for_status()
+            content = response.json()['choices'][0]['message']['content'].strip()
+            if language_ok(content, language):
+                break  # stayed in-language
 
         # Extract JSON array from response
         start = content.find('[')
@@ -522,11 +582,11 @@ Rules:
             question = Question(
                 room_id        = room_id,
                 type           = 'mcq',
-                tag            = q.get('tag', room.language.upper()),
+                tag            = q.get('tag', language.upper()),
                 question_text  = q['question'],
                 code_snippet   = q.get('code') if q.get('code') not in [None, 'null', ''] else None,
                 image_url      = img_url,
-                lang_label     = room.language,
+                lang_label     = language,
                 options        = q['options'],
                 correct_index  = min(3, max(0, int(q['correct_index']))),
                 hint           = q.get('hint', ''),
