@@ -1328,7 +1328,7 @@
             <div class="form-grid">
               <div class="form-group">
                 <label class="form-label">SELECT ROOM</label>
-                <select class="form-select" id="aiGenRoom" onchange="syncAiLangFromRoom()">
+                <select class="form-select" id="aiGenRoom">
                   <option value="">-- Select a room --</option>
                 </select>
               </div>
@@ -1738,14 +1738,7 @@
       }
     }
 
-    // Pre-fill the language text field from the selected room (still editable)
-    function syncAiLangFromRoom() {
-      const rid = parseInt(document.getElementById('aiGenRoom').value);
-      const room = allRooms.find(r => r.id === rid);
-      if (room) document.getElementById('aiGenLang').value = room.language;
-    }
-
-    function renderRoomCards() {
+function renderRoomCards() {
       const grid = document.getElementById('roomCardsGrid');
       grid.innerHTML = allRooms.map(r => {
         const col = ROOM_COLORS[r.language] || '#00ff41';
