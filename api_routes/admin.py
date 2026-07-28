@@ -533,7 +533,7 @@ def generate_questions():
         return jsonify({'error': 'Room not found'}), 404
     # Language comes from the admin's dropdown; fall back to the room's language.
     language = language or room.language
-    count = min(count, 10)  # Cap at 10 per request
+    count = min(count, 50)  # Cap at 50 per request
 
     prompt = build_generation_prompt(language, count, difficulty, syllabus, include_images)
 
@@ -552,9 +552,9 @@ def generate_questions():
                     'model':       NVIDIA_MODEL,
                     'messages':    [{'role': 'user', 'content': prompt}],
                     'temperature': 0.7,
-                    'max_tokens':  2048
+                    'max_tokens':  min(6000, 150 * count + 400),  # ~150 tokens/question + 400 base, capped at 6000
                 },
-                timeout=60
+                timeout=120
             )
             response.raise_for_status()
             content = response.json()['choices'][0]['message']['content'].strip()
