@@ -470,6 +470,114 @@ def language_ok(text, language):
     return any(m in text for m in markers)
 
 
+def repair_json_array(text):
+    """Small instruct models frequently forget to escape quotes/newlines
+    inside string values (most often inside "code" snippets that contain
+    the target language's own quote characters), which breaks json.loads
+    with errors like "Expecting ',' delimiter". Re-walk the text: inside a
+    string, a `"` is only treated as the real closing quote if the next
+    non-whitespace character is a valid JSON continuation (`,` `}` `]` `:`);
+    otherwise it's escaped as a literal character. Raw newlines/tabs inside
+    strings are escaped too."""
+    out = []
+    in_string = False
+    escape = False
+    i, n = 0, len(text)
+    while i < n:
+        ch = text[i]
+        if escape:
+            out.append(ch)
+            escape = False
+            i += 1
+            continue
+        if ch == '\\' and in_string:
+            out.append(ch)
+            escape = True
+            i += 1
+            continue
+        if in_string:
+            if ch == '"':
+                j = i + 1
+                while j < n and text[j] in ' \t\r\n':
+                    j += 1
+                if j < n and text[j] in ',}]:':
+                    in_string = False
+                    out.append(ch)
+                else:
+                    out.append('\\"')
+                i += 1
+                continue
+            if ch == '\n':
+                out.append('\\n')
+                i += 1
+                continue
+            if ch == '\t':
+                out.append('\\t')
+                i += 1
+                continue
+            out.append(ch)
+            i += 1
+            continue
+        else:
+            if ch == '"':
+                in_string = True
+            out.append(ch)
+            i += 1
+    return ''.join(out)
+
+
+def salvage_question_objects(array_text):
+    """Parse whichever top-level `{...}` objects are individually valid
+    JSON, skipping any that still aren't — so one irreparably malformed
+    question doesn't discard an entire generated batch."""
+    questions = []
+    depth = 0
+    start_idx = None
+    in_string = False
+    escape = False
+    for i, ch in enumerate(array_text):
+        if escape:
+            escape = False
+            continue
+        if ch == '\\' and in_string:
+            escape = True
+            continue
+        if ch == '"':
+            in_string = not in_string
+            continue
+        if in_string:
+            continue
+        if ch == '{':
+            if depth == 0:
+                start_idx = i
+            depth += 1
+        elif ch == '}':
+            depth -= 1
+            if depth == 0 and start_idx is not None:
+                chunk = array_text[start_idx:i + 1]
+                try:
+                    questions.append(json.loads(chunk))
+                except json.JSONDecodeError:
+                    pass
+                start_idx = None
+    return questions
+
+
+def parse_questions_json(array_text):
+    """Best-effort parse of the AI's JSON array, degrading gracefully
+    instead of failing the whole batch over one malformed question."""
+    try:
+        return json.loads(array_text)
+    except json.JSONDecodeError:
+        pass
+
+    repaired = repair_json_array(array_text)
+    try:
+        return json.loads(repaired)
+    except json.JSONDecodeError:
+        return salvage_question_objects(repaired)
+
+
 def build_generation_prompt(language, count, difficulty, syllabus, include_images):
     """Build the NVIDIA NIM prompt with `language` as a hard constraint,
     reinforced at the top and bottom and anchored with an example snippet."""
@@ -567,7 +675,9 @@ def generate_questions():
         if start == -1 or end == 0:
             return jsonify({'error': 'AI returned invalid format'}), 500
 
-        questions_data = json.loads(content[start:end])
+        questions_data = parse_questions_json(content[start:end])
+        if not questions_data:
+            return jsonify({'error': 'AI returned invalid format'}), 500
 
         saved = []
         for q in questions_data:
