@@ -552,7 +552,7 @@ def generate_questions():
                     'model':       NVIDIA_MODEL,
                     'messages':    [{'role': 'user', 'content': prompt}],
                     'temperature': 0.7,
-                    'max_tokens':  min(6000, 150 * count + 400),  # ~150 tokens/question + 400 base, capped at 6000
+                    'max_tokens':  min(6000, max(1500, 150 * count + 400)),  # ~150/question + 400 base; floor of 1500 so small counts aren't starved by JSON formatting overhead, capped at 6000
                 },
                 timeout=120
             )

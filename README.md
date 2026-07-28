@@ -393,7 +393,8 @@ Then open **<http://localhost:5000>** and log in.
 2. Configure the build:
    - **Environment:** `Python 3`
    - **Build Command:** `pip install -r requirements.txt`
-   - **Start Command:** `gunicorn "app:create_app()"`
+   - **Start Command:** `gunicorn "app:create_app()" --timeout 400`
+     (the AI question-generation route can retry the NVIDIA call up to 3 times at 120s each — gunicorn's default 30s worker timeout will silently kill the request mid-generation and the browser sees a bare "Network error" instead of the real cause, so this must exceed that worst case)
 3. Under **Environment**, add `NVIDIA_API_KEY`, `SECRET_KEY`, `JWT_SECRET_KEY`, and `FLASK_DEBUG=false`.
 4. **Persist your data.** SQLite on Render's ephemeral disk is wiped on every deploy. Choose one:
    - **Postgres (best):** create a Render PostgreSQL instance and set `DATABASE_URL` to its connection string — the app auto-normalises the legacy `postgres://` prefix.
