@@ -99,15 +99,27 @@ def submit_issue():
     if not data or not data.get('title') or not data.get('description'):
         return jsonify({'error': 'Title and description are required'}), 400
 
+    # ── Defense-in-depth vs stored XSS: cap length + reject HTML metacharacters.
+    #    (admin.html escapes on output; this also refuses to store XSS-y issues.)
+    title       = data['title'].strip()
+    description = data['description'].strip()
+    category    = (data.get('category') or 'general').strip()[:40]
+    if len(title) > 120:
+        return jsonify({'error': 'Title must be 120 characters or fewer'}), 400
+    if len(description) > 2000:
+        return jsonify({'error': 'Description must be 2000 characters or fewer'}), 400
+    if any('<' in v or '>' in v for v in (title, description, category)):
+        return jsonify({'error': 'Text contains invalid characters (< >)'}), 400
+
     issues = load_issues()
 
     new_issue = {
         'id':          (max([i['id'] for i in issues], default=0) + 1),
         'player_name': user.name if user else 'Unknown',
         'player_id':   uid,
-        'title':       data['title'].strip(),
-        'description': data['description'].strip(),
-        'category':    data.get('category', 'general'),
+        'title':       title,
+        'description': description,
+        'category':    category,
         'resolved':    False,
         'resolved_by': None,
         'created_at':  datetime.utcnow().isoformat()

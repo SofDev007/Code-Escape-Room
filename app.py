@@ -17,6 +17,9 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 if BASE_DIR not in sys.path:
     sys.path.insert(0, BASE_DIR)
 
+# Front-end files (HTML/CSS/JS/audio/favicon) live in ./frontend
+FRONTEND_DIR = os.path.join(BASE_DIR, 'frontend')
+
 from flask      import Flask, send_from_directory
 from flask_cors import CORS
 from config     import Config
@@ -49,11 +52,11 @@ def create_app():
 
     @app.route('/')
     def index():
-        return send_from_directory(BASE_DIR, 'login.html')
+        return send_from_directory(FRONTEND_DIR, 'login.html')
 
     @app.route('/<path:filename>')
     def serve_file(filename):
-        return send_from_directory(BASE_DIR, filename)
+        return send_from_directory(FRONTEND_DIR, filename)
 
     @app.route('/health')
     def health():

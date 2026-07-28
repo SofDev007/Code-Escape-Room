@@ -75,6 +75,15 @@ def signup():
     username   = data['username'].strip().lower()
     password   = data['password']
 
+    # ── Defense-in-depth vs stored XSS: cap length + reject HTML metacharacters
+    #    in names. (admin.html escapes on output; this refuses to even store a
+    #    name like `<img src=x onerror=...>` that would target the admin panel.)
+    for label, val in (('First name', first_name), ('Last name', last_name)):
+        if len(val) > 60:
+            return jsonify({'error': f'{label} must be 60 characters or fewer'}), 400
+        if '<' in val or '>' in val:
+            return jsonify({'error': f'{label} contains invalid characters'}), 400
+
     # Validate email format
     if not re.match(r'^[^@]+@[^@]+\.[^@]+$', email):
         return jsonify({'error': 'Invalid email address'}), 400
