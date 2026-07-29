@@ -698,6 +698,18 @@ def _generate_one_batch(language, count, difficulty, syllabus, include_images):
     return [q for q in parsed if question_in_language(q, language)]
 
 
+def split_difficulty(count):
+    """Spread `count` across easy/medium/hard as evenly as possible, giving
+    any remainder to the easier levels. Guarantees all three are represented
+    whenever count >= 3 (and degrades sensibly below that)."""
+    base, rem = divmod(count, 3)
+    return {
+        'easy':   base + (1 if rem >= 1 else 0),
+        'medium': base + (1 if rem >= 2 else 0),
+        'hard':   base,
+    }
+
+
 @admin_bp.route('/questions/generate', methods=['POST'])
 @jwt_required()
 def generate_questions():
@@ -722,54 +734,83 @@ def generate_questions():
     language = language or room.language
     count = min(count, 50)  # Cap at 50 per request
 
+    # Per-difficulty targets. "mixed" spreads evenly across easy/medium/hard so
+    # every generated set contains all three; a specific level generates only that.
+    if difficulty == 'mixed':
+        targets = split_difficulty(count)
+    else:
+        targets = {difficulty: count}
+    targets = {d: n for d, n in targets.items() if n > 0}
+
+    def _qkey(question, code):
+        # Key on question + code: MCQs reuse generic stems ("What is the output?")
+        # with different snippets, so the stem alone would merge distinct questions.
+        return (question or '').strip().lower() + '||' + (code or '').strip().lower()
+
     try:
-        # Generate in small parallel batches (each response stays under the
-        # token limit, so nothing truncates), topping up over a few rounds until
-        # we actually reach `count`. Parallel batches overlap and dedup thins the
+        # Don't store a question this room already has — seed the dedup set with
+        # every existing question's key so regenerating never creates duplicates.
+        seen = {
+            _qkey(row.question_text, row.code_snippet)
+            for row in Question.query.filter_by(room_id=room_id).all()
+        }
+
+        # Generate in small parallel batches (each response stays under the token
+        # limit, so nothing truncates), topping up over a few rounds until each
+        # difficulty hits its target. Parallel batches overlap and dedup thins the
         # pool, so a single pass under-delivers — the top-up loop is what makes
-        # "give me 50" reliably return 50.
-        collected = {}  # dedup key -> question dict
+        # "give me 50" reliably return 50 with the difficulty split intact.
+        buckets = {d: [] for d in targets}  # difficulty -> collected question dicts
         for _round in range(4):
-            need = count - len(collected)
-            if need <= 0:
+            work = []  # (difficulty, batch_size)
+            for d, tgt in targets.items():
+                need = tgt - len(buckets[d])
+                if need <= 0:
+                    continue
+                # Over-request ~60%: dedup discards a chunk of each round, and one
+                # extra parallel batch now beats a whole slow top-up round later.
+                rem = int(need * 1.6) + 1
+                while rem > 0:
+                    work.append((d, min(GEN_BATCH_SIZE, rem)))
+                    rem -= GEN_BATCH_SIZE
+            if not work:
                 break
-            # Over-request generously: dedup discards ~30% of a round, and one
-            # extra parallel batch now is far cheaper than a whole slow top-up
-            # round later, so favour clearing `count` in a single round.
-            to_gen = int(need * 1.6) + 1
-            sizes, rem = [], to_gen
-            while rem > 0:
-                sizes.append(min(GEN_BATCH_SIZE, rem))
-                rem -= GEN_BATCH_SIZE
 
             with ThreadPoolExecutor(max_workers=GEN_MAX_WORKERS) as pool:
-                futures = [
-                    pool.submit(_generate_one_batch, language, bs, difficulty, syllabus, include_images)
-                    for bs in sizes
-                ]
-                for fut in as_completed(futures):
+                fut_diff = {
+                    pool.submit(_generate_one_batch, language, bs, d, syllabus, include_images): d
+                    for d, bs in work
+                }
+                for fut in as_completed(fut_diff):
+                    d = fut_diff[fut]
+                    if len(buckets[d]) >= targets[d]:
+                        continue
                     for q in fut.result():
-                        # Key on question + code: MCQs reuse generic stems
-                        # ("What is the output?") with different snippets, so
-                        # the stem alone would merge distinct questions.
-                        key = (q.get('question') or '').strip().lower() + '||' + (q.get('code') or '').strip().lower()
-                        if key.strip('|') and key not in collected:
-                            collected[key] = q
+                        key = _qkey(q.get('question'), q.get('code'))
+                        if not key.strip('|') or key in seen:
+                            continue
+                        seen.add(key)
+                        q['_difficulty'] = d  # store with the difficulty it was generated for
+                        buckets[d].append(q)
 
-        questions_data = list(collected.values())[:count]
+        questions_data = []
+        for d, tgt in targets.items():
+            questions_data.extend(buckets[d][:tgt])
         if not questions_data:
             return jsonify({'error': 'AI returned invalid format'}), 500
 
         saved = []
+        by_difficulty = {}
         for q in questions_data:
             if not all(k in q for k in ['question', 'options', 'correct_index']):
                 continue
-                
+
             img_url = None
             if include_images and q.get('image_prompt'):
                 # Call NVIDIA NIM SDXL for a high-quality, permanent Base64 image
                 img_url = generate_nvidia_image(q['image_prompt'])
 
+            q_difficulty = q.get('_difficulty', 'medium')  # each question keeps the level it was generated for
             question = Question(
                 room_id        = room_id,
                 type           = 'mcq',
@@ -781,15 +822,18 @@ def generate_questions():
                 options        = q['options'],
                 correct_index  = min(3, max(0, int(q['correct_index']))),
                 hint           = q.get('hint', ''),
-                difficulty     = difficulty
+                difficulty     = q_difficulty
             )
             db.session.add(question)
             saved.append(q['question'][:60])
+            by_difficulty[q_difficulty] = by_difficulty.get(q_difficulty, 0) + 1
 
         db.session.commit()
+        breakdown = ', '.join(f"{n} {d}" for d, n in by_difficulty.items())
         return jsonify({
-            'message':   f'{len(saved)} questions generated and saved to {room.name}',
+            'message':   f'{len(saved)} questions generated and saved to {room.name}' + (f' ({breakdown})' if breakdown else ''),
             'count':     len(saved),
+            'breakdown': by_difficulty,
             'questions': saved
         }), 201
 
