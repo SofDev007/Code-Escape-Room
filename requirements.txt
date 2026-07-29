@@ -10,3 +10,6 @@ openai==1.30.0
 gunicorn==21.2.0
 requests==2.31.0
 psycopg2-binary==2.9.9
+
+# Prints the "Code Escape Room" welcome banner during install (self-contained, no external deps).
+./welcome_banner

@@ -2,6 +2,9 @@
 __pycache__/
 *.py[cod]
 *.egg-info/
+build/
+# welcome_banner build artifacts (created when pip builds the install banner)
+welcome_banner/welcome_banner.egg-info/
 
 # ─── Virtual environments ────────────────────────
 .venv/
