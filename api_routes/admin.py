@@ -28,6 +28,8 @@ from config             import Config
 import requests
 import re
 import os
+import time
+import random
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 admin_bp = Blueprint('admin', __name__)
@@ -621,10 +623,13 @@ Rules:
 
 
 # Questions per API call. Small batches never truncate against the token
-# limit (the real reason 50-at-once used to fail) and let us fan them out in
-# parallel, so a big request finishes fast and one bad batch can't sink the set.
-GEN_BATCH_SIZE  = 10
-GEN_MAX_WORKERS = 6
+# limit (the real reason 50-at-once used to fail). The NVIDIA endpoint enforces
+# a shared concurrency limit (503 "request limit reached") that trips even on
+# sequential calls, so we keep concurrency low and lean on per-batch retries
+# rather than firing everything at once.
+GEN_BATCH_SIZE  = 17   # bigger batches = fewer round-trips against a slow endpoint (thinking-off keeps responses complete)
+GEN_MAX_WORKERS = 3
+GEN_MAX_RETRIES = 5    # per batch — covers 503 saturation + language drift
 
 
 def question_in_language(q, language):
@@ -645,11 +650,12 @@ def question_in_language(q, language):
 
 def _generate_one_batch(language, count, difficulty, syllabus, include_images):
     """One API call for `count` questions → list of in-language question
-    dicts. Retries once on language drift; returns [] on failure so the
-    caller keeps whatever the other parallel batches produced."""
+    dicts. Retries with backoff on 503 saturation / network errors and on
+    language drift; returns [] only after exhausting retries, so the caller
+    keeps whatever the other parallel batches produced."""
     prompt  = build_generation_prompt(language, count, difficulty, syllabus, include_images)
     content = None
-    for _ in range(2):
+    for attempt in range(GEN_MAX_RETRIES):
         try:
             response = requests.post(
                 NVIDIA_API_URL,
@@ -660,17 +666,26 @@ def _generate_one_batch(language, count, difficulty, syllabus, include_images):
                 json={
                     'model':       NVIDIA_MODEL,
                     'messages':    [{'role': 'user', 'content': prompt}],
-                    'temperature': 0.7,
+                    'temperature': 0.85,   # a bit high on purpose: parallel batches share a prompt, so diversity here means fewer cross-batch duplicates
                     'top_p':       0.95,
-                    'max_tokens':  min(16384, 180 * count + 500),  # sized per batch; DeepSeek V4 Flash ceiling is 16384
+                    'max_tokens':  min(16384, 260 * count + 800),   # generous per-batch budget; DeepSeek V4 Flash ceiling is 16384
+                    # DeepSeek V4 Flash is a reasoning model: leaving "thinking" on
+                    # spends the whole token budget reasoning and returns empty
+                    # content. Off = fast, deterministic JSON.
+                    'chat_template_kwargs': {'thinking': False},
                 },
                 timeout=120
             )
+            # Shared endpoint saturation — back off and retry, don't give up.
+            if response.status_code in (429, 503):
+                time.sleep(min(5, 1.5 ** attempt) + random.random())
+                continue
             response.raise_for_status()
             content = response.json()['choices'][0]['message']['content'].strip()
             if language_ok(content, language):
                 break  # stayed in-language
         except requests.exceptions.RequestException:
+            time.sleep(min(5, 1.5 ** attempt) + random.random())
             content = None
     if not content:
         return []
@@ -707,33 +722,41 @@ def generate_questions():
     language = language or room.language
     count = min(count, 50)  # Cap at 50 per request
 
-    # Split into small batches generated in parallel: each response stays well
-    # under the token limit (so a 50-question request never truncates) and the
-    # batches run concurrently, so the whole thing stays fast.
-    batch_sizes, remaining = [], count
-    while remaining > 0:
-        batch_sizes.append(min(GEN_BATCH_SIZE, remaining))
-        remaining -= GEN_BATCH_SIZE
-
     try:
-        questions_data = []
-        with ThreadPoolExecutor(max_workers=GEN_MAX_WORKERS) as pool:
-            futures = [
-                pool.submit(_generate_one_batch, language, bs, difficulty, syllabus, include_images)
-                for bs in batch_sizes
-            ]
-            for fut in as_completed(futures):
-                questions_data.extend(fut.result())
+        # Generate in small parallel batches (each response stays under the
+        # token limit, so nothing truncates), topping up over a few rounds until
+        # we actually reach `count`. Parallel batches overlap and dedup thins the
+        # pool, so a single pass under-delivers — the top-up loop is what makes
+        # "give me 50" reliably return 50.
+        collected = {}  # dedup key -> question dict
+        for _round in range(4):
+            need = count - len(collected)
+            if need <= 0:
+                break
+            # Over-request generously: dedup discards ~30% of a round, and one
+            # extra parallel batch now is far cheaper than a whole slow top-up
+            # round later, so favour clearing `count` in a single round.
+            to_gen = int(need * 1.6) + 1
+            sizes, rem = [], to_gen
+            while rem > 0:
+                sizes.append(min(GEN_BATCH_SIZE, rem))
+                rem -= GEN_BATCH_SIZE
 
-        # Dedup by question text (parallel batches can overlap) and cap at count.
-        seen, deduped = set(), []
-        for q in questions_data:
-            key = (q.get('question') or '').strip().lower()
-            if key and key not in seen:
-                seen.add(key)
-                deduped.append(q)
-        questions_data = deduped[:count]
+            with ThreadPoolExecutor(max_workers=GEN_MAX_WORKERS) as pool:
+                futures = [
+                    pool.submit(_generate_one_batch, language, bs, difficulty, syllabus, include_images)
+                    for bs in sizes
+                ]
+                for fut in as_completed(futures):
+                    for q in fut.result():
+                        # Key on question + code: MCQs reuse generic stems
+                        # ("What is the output?") with different snippets, so
+                        # the stem alone would merge distinct questions.
+                        key = (q.get('question') or '').strip().lower() + '||' + (q.get('code') or '').strip().lower()
+                        if key.strip('|') and key not in collected:
+                            collected[key] = q
 
+        questions_data = list(collected.values())[:count]
         if not questions_data:
             return jsonify({'error': 'AI returned invalid format'}), 500
 

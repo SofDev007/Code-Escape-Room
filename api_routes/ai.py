@@ -9,6 +9,8 @@
 # ============================================================
 
 import json
+import time
+import random
 from flask              import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from openai             import OpenAI
@@ -35,20 +37,33 @@ NVIDIA_MODEL = "deepseek-ai/deepseek-v4-flash"
 #  HELPER — Call NVIDIA NIM API
 # ============================================================
 def call_nvidia(system_prompt, user_prompt, max_tokens=300):
-    try:
-        client = get_nvidia_client()
-        response = client.chat.completions.create(
-            model      = NVIDIA_MODEL,
-            messages   = [
-                {"role": "system", "content": system_prompt},
-                {"role": "user",   "content": user_prompt}
-            ],
-            temperature = 0.5,
-            max_tokens  = max_tokens
-        )
-        return response.choices[0].message.content.strip(), None
-    except Exception as e:
-        return None, str(e)
+    # The NVIDIA endpoint enforces a shared concurrency limit (503) that trips
+    # intermittently; retry with backoff so a transient 503 doesn't force the
+    # static fallback on every request.
+    client   = get_nvidia_client()
+    last_err = None
+    for attempt in range(3):
+        try:
+            response = client.chat.completions.create(
+                model      = NVIDIA_MODEL,
+                messages   = [
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user",   "content": user_prompt}
+                ],
+                temperature = 0.5,
+                max_tokens  = max_tokens,
+                # DeepSeek V4 Flash reasons by default and would spend the whole
+                # (small) hint budget thinking, returning empty content. Off.
+                extra_body  = {"chat_template_kwargs": {"thinking": False}}
+            )
+            text = (response.choices[0].message.content or "").strip()
+            if text:
+                return text, None
+            last_err = "empty response"
+        except Exception as e:
+            last_err = str(e)
+        time.sleep(min(4, 2 ** attempt) + random.random())
+    return None, last_err
 
 
 # ============================================================
