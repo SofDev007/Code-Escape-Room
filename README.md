@@ -160,8 +160,8 @@ flowchart TD
     end
 
     subgraph Cloud["🧠  NVIDIA NIM"]
-        LLAMA["Llama 3.1 8B<br/>question generation"]
-        MISTRAL["Mistral 7B v0.2<br/>hints · explain · debrief"]
+        LLAMA["DeepSeek V4 Flash<br/>question generation"]
+        MISTRAL["DeepSeek V4 Flash<br/>hints · explain · debrief"]
         SDXL["Stable Diffusion XL<br/>question images"]
     end
 
@@ -183,7 +183,7 @@ flowchart TD
 | **Backend** | Flask 3.0 · Python 3.12 |
 | **Database** | SQLAlchemy ORM → SQLite (default) · PostgreSQL (`psycopg2`) · MySQL (`PyMySQL`) |
 | **Auth** | Flask-JWT-Extended (8h access / 30d refresh) · Flask-Bcrypt |
-| **AI Engine** | NVIDIA NIM (OpenAI-compatible) — Llama 3.1 8B · Mistral 7B v0.2 · SDXL |
+| **AI Engine** | NVIDIA NIM (OpenAI-compatible) — DeepSeek V4 Flash · SDXL |
 | **Frontend** | Vanilla HTML5 / CSS3 / JavaScript · `<canvas>` Matrix rain · glassmorphism |
 | **Fonts** | Orbitron · Share Tech Mono · VT323 |
 | **Server** | Gunicorn (production) · Flask dev server (local) |
@@ -199,12 +199,12 @@ Every AI feature runs through **NVIDIA NIM** using its OpenAI-compatible API. Th
 
 | Capability | Endpoint | Model | What it does |
 |:-----------|:---------|:------|:-------------|
-|  **Question Generation** | `POST /api/admin/questions/generate` | `meta/llama-3.1-8b-instruct` | Generates full MCQ sets from a language + syllabus prompt, with strict in-language validation & retries |
+|  **Question Generation** | `POST /api/admin/questions/generate` | `deepseek-ai/deepseek-v4-flash` | Generates full MCQ sets from a language + syllabus prompt, with strict in-language validation & retries |
 |  **Question Illustrations** | *(same route, opt-in)* | `stabilityai/sdxl` | Produces a Base64 image for questions when `include_images` is on |
-|  **Hints** | `POST /api/ai/hint` | `mistralai/mistral-7b-instruct-v0.2` | Cryptic, encouraging nudges that never reveal the answer |
-|  **Mistake Explainer** | `POST /api/ai/explain` | `mistralai/mistral-7b-instruct-v0.2` | Explains *why* an answer was wrong and the right one is right |
-|  **Mission Debrief** | `POST /api/ai/summary` | `mistralai/mistral-7b-instruct-v0.2` | Personalized study advice from per-room performance & weak topics |
-|  **Room Tips** | `POST /api/ai/room-tip` | `mistralai/mistral-7b-instruct-v0.2` | A dramatic, in-character concept reminder before you enter a vault |
+|  **Hints** | `POST /api/ai/hint` | `deepseek-ai/deepseek-v4-flash` | Cryptic, encouraging nudges that never reveal the answer |
+|  **Mistake Explainer** | `POST /api/ai/explain` | `deepseek-ai/deepseek-v4-flash` | Explains *why* an answer was wrong and the right one is right |
+|  **Mission Debrief** | `POST /api/ai/summary` | `deepseek-ai/deepseek-v4-flash` | Personalized study advice from per-room performance & weak topics |
+|  **Room Tips** | `POST /api/ai/room-tip` | `deepseek-ai/deepseek-v4-flash` | A dramatic, in-character concept reminder before you enter a vault |
 
 ---
 

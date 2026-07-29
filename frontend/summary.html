@@ -289,8 +289,8 @@
     <!-- AI Advice (full width) -->
     <div class="panel full">
       <div class="panel-head">
-        <div class="panel-title">// AI_STUDY_ADVISOR.exe — MISTRAL AI (NVIDIA NIM)</div>
-        <div style="font-size:0.58rem;color:rgba(0,245,255,0.4)">POWERED BY mistral-7b-instruct-v0.2</div>
+        <div class="panel-title">// AI_STUDY_ADVISOR.exe — DEEPSEEK AI (NVIDIA NIM)</div>
+        <div style="font-size:0.58rem;color:rgba(0,245,255,0.4)">POWERED BY deepseek-v4-flash</div>
       </div>
       <div class="panel-body">
         <div class="ai-advice-box">
@@ -298,13 +298,13 @@
             <span class="ai-logo">🤖</span>
             <div>
               <div class="ai-label">PERSONALIZED STUDY ADVICE</div>
-              <div class="ai-model">mistralai/mistral-7b-instruct-v0.2 via NVIDIA NIM</div>
+              <div class="ai-model">deepseek-ai/deepseek-v4-flash via NVIDIA NIM</div>
             </div>
           </div>
           <div id="aiAdviceContent">
             <div class="ai-loading">
               <div class="ai-spinner"></div>
-              <span>Mistral AI is analyzing your performance...</span>
+              <span>DeepSeek AI is analyzing your performance...</span>
             </div>
           </div>
         </div>
@@ -553,7 +553,7 @@ function renderCertificate(d){
 /* ════════ AI ADVICE ════════ */
 async function getAIAdvice(d){
   const content = document.getElementById('aiAdviceContent');
-  content.innerHTML='<div class="ai-loading"><div class="ai-spinner"></div><span>Mistral AI is generating your personalized study advice...</span></div>';
+  content.innerHTML='<div class="ai-loading"><div class="ai-spinner"></div><span>DeepSeek AI is generating your personalized study advice...</span></div>';
 
   const res = await api('/ai/summary','POST',{
     student_name:  d.student_name,

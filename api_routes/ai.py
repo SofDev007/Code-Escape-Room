@@ -1,6 +1,6 @@
 # ============================================================
 #  routes/ai.py — NVIDIA NIM AI Integration
-#  Model: mistralai/mistral-7b-instruct-v0.2
+#  Model: deepseek-ai/deepseek-v4-flash
 #
 #  POST /api/ai/hint         - AI generated hint for a question
 #  POST /api/ai/explain      - Explain why an answer is wrong
@@ -28,7 +28,7 @@ def get_nvidia_client():
         api_key  = Config.NVIDIA_API_KEY
     )
 
-NVIDIA_MODEL = "mistralai/mistral-7b-instruct-v0.2"
+NVIDIA_MODEL = "deepseek-ai/deepseek-v4-flash"
 
 
 # ============================================================

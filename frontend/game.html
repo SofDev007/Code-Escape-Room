@@ -1032,10 +1032,10 @@
           </div>
         </div>
         <div class="sp-box">
-          <div class="sp-title">// AI_HINT_BUFFER.dat — MISTRAL</div>
+          <div class="sp-title">// AI_HINT_BUFFER.dat — DEEPSEEK</div>
           <div class="sp-body" id="hintArea">
             <div style="color:rgba(0,255,65,0.3);font-size:0.72rem">&gt; Press AI HINT for a smart hint powered by
-              Mistral AI</div>
+              DeepSeek AI</div>
           </div>
         </div>
       </div>
@@ -1049,7 +1049,7 @@
           <div style="text-align:center;padding:40px;color:rgba(0,255,65,0.3)">Loading question...</div>
         </div>
         <div class="ai-explain-box" id="aiExplainBox">
-          <div class="ai-explain-label">🤖 AI EXPLANATION — MISTRAL AI (NVIDIA NIM)</div>
+          <div class="ai-explain-label">🤖 AI EXPLANATION — DEEPSEEK AI (NVIDIA NIM)</div>
           <div id="aiExplainText"></div>
         </div>
 
@@ -1313,7 +1313,7 @@
       label.style.color = ROOM_COLORS[room.language] || '#00ff41';
       document.getElementById('roomSublabel').textContent = room.description || 'CRACK THE CODE';
       document.getElementById('roomLore').innerHTML = room.lore || '';
-      document.getElementById('hintArea').innerHTML = '<div style="color:rgba(0,255,65,0.3);font-size:0.72rem">&gt; Press AI HINT for a hint from Mistral AI</div>';
+      document.getElementById('hintArea').innerHTML = '<div style="color:rgba(0,255,65,0.3);font-size:0.72rem">&gt; Press AI HINT for a hint from DeepSeek AI</div>';
 
       const res = await api(`/quiz/room/${room.id}/questions?difficulty=${S.diff}`);
       if (!res || !res.ok || !res.data.questions?.length) { setFeedback('wrong', 'Failed to load questions!'); return; }
@@ -1510,7 +1510,7 @@
       document.getElementById('hintCount').textContent = S.hints;
       if (S.hints <= 0) document.getElementById('hintBtn').disabled = true;
       const q = S.questions[S.qIdx];
-      document.getElementById('hintArea').innerHTML = '<div class="hint-loading"><div class="hint-spinner"></div><span>&gt; Asking Mistral AI (NVIDIA NIM)...</span></div>';
+      document.getElementById('hintArea').innerHTML = '<div class="hint-loading"><div class="hint-spinner"></div><span>&gt; Asking DeepSeek AI (NVIDIA NIM)...</span></div>';
       const res = await api('/ai/hint', 'POST', { question_id: q.id });
       if (res && res.ok) {
         document.getElementById('hintArea').innerHTML = `<div style="color:var(--amber);font-size:0.76rem;line-height:1.65;font-style:italic"><span style="font-family:var(--font-hud);font-size:0.58rem;color:rgba(255,183,0,0.6);letter-spacing:0.1em;display:block;margin-bottom:5px">🤖 MISTRAL AI</span>${res.data.hint}</div>`;
@@ -1521,7 +1521,7 @@
 
     async function getAIExplanation(questionId, studentAnswer, correctAnswer) {
       const box = document.getElementById('aiExplainBox'), textEl = document.getElementById('aiExplainText');
-      textEl.textContent = '🤖 Mistral AI is analyzing your answer...';
+      textEl.textContent = '🤖 DeepSeek AI is analyzing your answer...';
       box.classList.add('show');
       const res = await api('/ai/explain', 'POST', { question_id: questionId, student_answer: studentAnswer, correct_answer: String(correctAnswer) });
       textEl.textContent = res && res.ok ? res.data.explanation : `The correct answer is "${correctAnswer}". Review this concept!`;

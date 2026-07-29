@@ -28,12 +28,13 @@ from config             import Config
 import requests
 import re
 import os
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 admin_bp = Blueprint('admin', __name__)
 
 # NVIDIA NIM API
 NVIDIA_API_URL = 'https://integrate.api.nvidia.com/v1/chat/completions'
-NVIDIA_MODEL   = 'meta/llama-3.1-8b-instruct'
+NVIDIA_MODEL   = 'deepseek-ai/deepseek-v4-flash'
 
 
 # ── HELPER ───────────────────────────────────────────────────
@@ -447,7 +448,7 @@ LANG_MARKERS = {
     'HTML/CSS':   ['<div', '</', 'class=', '{'],
 }
 
-# One anchoring example snippet per language to pin Mistral-7B.
+# One anchoring example snippet per language to pin DeepSeek V4 Flash.
 LANG_EXAMPLES = {
     'Python':     'print("Hello")\nfor i in range(3):\n    if i == 0:\n        pass',
     'Java':       'public class Main { public static void main(String[] a){ System.out.println("Hi"); } }',
@@ -619,6 +620,69 @@ Rules:
 - CRITICAL: Use ONLY {language} syntax in every question and code snippet. Never mix in another language."""
 
 
+# Questions per API call. Small batches never truncate against the token
+# limit (the real reason 50-at-once used to fail) and let us fan them out in
+# parallel, so a big request finishes fast and one bad batch can't sink the set.
+GEN_BATCH_SIZE  = 10
+GEN_MAX_WORKERS = 6
+
+
+def question_in_language(q, language):
+    """Reject a question only when its code snippet clearly belongs to a
+    DIFFERENT language — 2+ markers of another language and none of the
+    target's. Snippet-free or ambiguous questions always pass, so correct
+    questions are never thrown away over a loose heuristic."""
+    code = q.get('code')
+    if not code or code in ('null', ''):
+        return True
+    if language_ok(code, language):
+        return True
+    for other, markers in LANG_MARKERS.items():
+        if other != language and sum(m in code for m in markers) >= 2:
+            return False
+    return True
+
+
+def _generate_one_batch(language, count, difficulty, syllabus, include_images):
+    """One API call for `count` questions → list of in-language question
+    dicts. Retries once on language drift; returns [] on failure so the
+    caller keeps whatever the other parallel batches produced."""
+    prompt  = build_generation_prompt(language, count, difficulty, syllabus, include_images)
+    content = None
+    for _ in range(2):
+        try:
+            response = requests.post(
+                NVIDIA_API_URL,
+                headers={
+                    'Authorization': f'Bearer {Config.NVIDIA_API_KEY}',
+                    'Content-Type':  'application/json'
+                },
+                json={
+                    'model':       NVIDIA_MODEL,
+                    'messages':    [{'role': 'user', 'content': prompt}],
+                    'temperature': 0.7,
+                    'top_p':       0.95,
+                    'max_tokens':  min(16384, 180 * count + 500),  # sized per batch; DeepSeek V4 Flash ceiling is 16384
+                },
+                timeout=120
+            )
+            response.raise_for_status()
+            content = response.json()['choices'][0]['message']['content'].strip()
+            if language_ok(content, language):
+                break  # stayed in-language
+        except requests.exceptions.RequestException:
+            content = None
+    if not content:
+        return []
+
+    start = content.find('[')
+    end   = content.rfind(']') + 1
+    if start == -1 or end == 0:
+        return []
+    parsed = parse_questions_json(content[start:end]) or []
+    return [q for q in parsed if question_in_language(q, language)]
+
+
 @admin_bp.route('/questions/generate', methods=['POST'])
 @jwt_required()
 def generate_questions():
@@ -643,39 +707,33 @@ def generate_questions():
     language = language or room.language
     count = min(count, 50)  # Cap at 50 per request
 
-    prompt = build_generation_prompt(language, count, difficulty, syllabus, include_images)
+    # Split into small batches generated in parallel: each response stays well
+    # under the token limit (so a 50-question request never truncates) and the
+    # batches run concurrently, so the whole thing stays fast.
+    batch_sizes, remaining = [], count
+    while remaining > 0:
+        batch_sizes.append(min(GEN_BATCH_SIZE, remaining))
+        remaining -= GEN_BATCH_SIZE
 
     try:
-        # ponytail: keyword check + up to 2 retries. Mistral-7B drifts languages;
-        # a stricter validator (AST/lexer per language) isn't worth it here.
-        content = None
-        for attempt in range(3):
-            response = requests.post(
-                NVIDIA_API_URL,
-                headers={
-                    'Authorization': f'Bearer {Config.NVIDIA_API_KEY}',
-                    'Content-Type':  'application/json'
-                },
-                json={
-                    'model':       NVIDIA_MODEL,
-                    'messages':    [{'role': 'user', 'content': prompt}],
-                    'temperature': 0.7,
-                    'max_tokens':  min(6000, max(1500, 150 * count + 400)),  # ~150/question + 400 base; floor of 1500 so small counts aren't starved by JSON formatting overhead, capped at 6000
-                },
-                timeout=120
-            )
-            response.raise_for_status()
-            content = response.json()['choices'][0]['message']['content'].strip()
-            if language_ok(content, language):
-                break  # stayed in-language
+        questions_data = []
+        with ThreadPoolExecutor(max_workers=GEN_MAX_WORKERS) as pool:
+            futures = [
+                pool.submit(_generate_one_batch, language, bs, difficulty, syllabus, include_images)
+                for bs in batch_sizes
+            ]
+            for fut in as_completed(futures):
+                questions_data.extend(fut.result())
 
-        # Extract JSON array from response
-        start = content.find('[')
-        end   = content.rfind(']') + 1
-        if start == -1 or end == 0:
-            return jsonify({'error': 'AI returned invalid format'}), 500
+        # Dedup by question text (parallel batches can overlap) and cap at count.
+        seen, deduped = set(), []
+        for q in questions_data:
+            key = (q.get('question') or '').strip().lower()
+            if key and key not in seen:
+                seen.add(key)
+                deduped.append(q)
+        questions_data = deduped[:count]
 
-        questions_data = parse_questions_json(content[start:end])
         if not questions_data:
             return jsonify({'error': 'AI returned invalid format'}), 500
 
